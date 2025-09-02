@@ -6,10 +6,10 @@ from mcp.server.fastmcp import FastMCP
 mcp = FastMCP("weather")
 
 # Constants
-NWS_API_BASE = "https://api.weather.gov"
-USER_AGENT = "weather-app/1.0"
+API_BASE = "https://api.hevyapp.com"
+USER_AGENT = "hevy-app/1.0"
 
-async def make_nws_request(url: str) -> dict[str, Any] | None:
+async def make_hevy_request(url: str) -> dict[str, Any] | None:
     """Make a request to the NWS API with proper error handling."""
     headers = {
         "User-Agent": USER_AGENT,
