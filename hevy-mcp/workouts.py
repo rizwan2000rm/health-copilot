@@ -67,24 +67,6 @@ async def make_hevy_request(url: str, params: dict[str, Any] | None = None, payl
             return None
 
 @mcp.tool()
-async def get_user_info() -> str:
-    """Get current user information from Hevy API."""
-    if not API_KEY:
-        return (
-            "HEVY_API_KEY is required. Set it in your MCP client config "
-            "so it is available to the server process."
-        )
-    
-    url = f"{API_BASE}/user"
-    print(f"Making request to {url}", file=sys.stderr)
-    data = await make_hevy_request(url)
-
-    if not data:
-        return "Unable to fetch user information from the API."
-
-    return f"User info: {data}"
-
-@mcp.tool()
 async def get_workouts(page: int = 1, pageSize: int = 10) -> str:
     """Get workouts for a user.
 
