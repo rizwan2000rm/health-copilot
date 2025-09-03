@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "hevy": {
+      "command": "/Users/rizwan/.local/bin/uv",
+      "args": [
+        "--directory",
+        "/Users/rizwan/work/health-copilot/hevy-mcp/",
+        "run",
+        "workouts.py"
+      ],
+      "env": {
+        "HEVY_API_KEY": "YOUR_HEVY_API_KEY_HERE"
+      }
+    }
+  }
+}
