@@ -1,13 +1,15 @@
 from typing import Any
+import os
 import httpx
 from mcp.server.fastmcp import FastMCP
 
 # Initialize FastMCP server
-mcp = FastMCP("weather")
+mcp = FastMCP("hevy")
 
 # Constants
 API_BASE = "https://api.hevyapp.com/v1"
 USER_AGENT = "hevy-app/1.0"
+API_KEY = os.getenv("HEVY_API_KEY")
 
 async def make_hevy_request(url: str, payload: dict[str, Any] | None = None) -> dict[str, Any] | None:
     """Make a request to the Hevy API with proper error handling."""
@@ -15,6 +17,8 @@ async def make_hevy_request(url: str, payload: dict[str, Any] | None = None) -> 
         "User-Agent": USER_AGENT,
         "Accept": "application/json"
     }
+    if API_KEY:
+        headers["Authorization"] = f"Bearer {API_KEY}"
     async with httpx.AsyncClient() as client:
         try:
             response = await client.get(url, headers=headers, data=payload, timeout=30.0)
@@ -31,6 +35,11 @@ async def get_workouts(page: int, pageSize: int) -> str:
         page: Page number
         pageSize: Number of workouts per page
     """
+    if not API_KEY:
+        return (
+            "HEVY_API_KEY is required. Set it in your MCP client config "
+            "so it is available to the server process."
+        )
     url = f"{API_BASE}/workouts"
     payload = {
         "page": page,
