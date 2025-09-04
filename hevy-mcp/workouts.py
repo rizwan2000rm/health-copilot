@@ -186,11 +186,6 @@ async def create_workout(payload: dict[str, Any]) -> str:
             "HEVY_API_KEY is required. Set it in your MCP client config "
             "so it is available to the server process."
         )
-    if not isinstance(payload, dict) or "workout" not in payload or not isinstance(payload["workout"], dict):
-        return (
-            "Invalid request body. Expected a JSON object with top-level 'workout' key. "
-            "See Hevy Workouts create spec."
-        )
     url = f"{API_BASE}/workouts"
     data = await make_hevy_request(url, method="POST", payload=payload)
     if not data:
