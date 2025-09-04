@@ -4,6 +4,8 @@ import sys
 from tools.common import mcp
 from tools import routines 
 from tools import workouts
+from tools import exercises
+from tools import webhooks
 
 def signal_handler(signum, frame):
     """Handle shutdown signals gracefully."""
