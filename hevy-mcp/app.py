@@ -1,6 +1,9 @@
 import signal
 import sys
-from tools.workouts import mcp
+
+from tools.common import mcp
+from tools import routines 
+from tools import workouts
 
 def signal_handler(signum, frame):
     """Handle shutdown signals gracefully."""
