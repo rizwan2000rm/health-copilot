@@ -4,6 +4,7 @@ import signal
 import sys
 import httpx
 from mcp.server.fastmcp import FastMCP
+import json
 
 # Initialize FastMCP server
 mcp = FastMCP("hevy")
@@ -22,8 +23,20 @@ def signal_handler(signum, frame):
 signal.signal(signal.SIGINT, signal_handler)
 signal.signal(signal.SIGTERM, signal_handler)
 
-async def make_hevy_request(url: str, params: dict[str, Any] | None = None, payload: dict[str, Any] | None = None) -> dict[str, Any] | None:
-    """Make a request to the Hevy API with proper error handling."""
+async def make_hevy_request(
+    url: str,
+    method: str = "GET",
+    params: dict[str, Any] | None = None,
+    payload: dict[str, Any] | None = None,
+) -> dict[str, Any] | None:
+    """Make a request to the Hevy API with proper error handling.
+
+    Args:
+        url: Full request URL
+        method: HTTP method (GET, POST, PUT, PATCH, DELETE)
+        params: Query parameters
+        payload: JSON body for non-GET requests
+    """
     headers = {
         "User-Agent": USER_AGENT,
         "Accept": "application/json"
@@ -36,6 +49,7 @@ async def make_hevy_request(url: str, params: dict[str, Any] | None = None, payl
     
     print(f"Making request to: {url}", file=sys.stderr)
     print(f"Headers: {headers}", file=sys.stderr)
+    print(f"Method: {method}", file=sys.stderr)
     if params:
         print(f"Query params: {params}", file=sys.stderr)
     if payload:
@@ -43,13 +57,21 @@ async def make_hevy_request(url: str, params: dict[str, Any] | None = None, payl
     
     async with httpx.AsyncClient() as client:
         try:
-            if payload:
-                # Use POST for requests with payload
-                headers["Content-Type"] = "application/json"
-                response = await client.post(url, headers=headers, json=payload, timeout=30.0)
-            else:
-                # Use GET for requests without payload
+            if method.upper() == "GET":
                 response = await client.get(url, headers=headers, params=params, timeout=30.0)
+            elif method.upper() == "POST":
+                headers["Content-Type"] = "application/json"
+                response = await client.post(url, headers=headers, params=params, json=payload, timeout=30.0)
+            elif method.upper() == "PUT":
+                headers["Content-Type"] = "application/json"
+                response = await client.put(url, headers=headers, params=params, json=payload, timeout=30.0)
+            elif method.upper() == "PATCH":
+                headers["Content-Type"] = "application/json"
+                response = await client.patch(url, headers=headers, params=params, json=payload, timeout=30.0)
+            elif method.upper() == "DELETE":
+                response = await client.delete(url, headers=headers, params=params, timeout=30.0)
+            else:
+                raise ValueError(f"Unsupported HTTP method: {method}")
             
             print(f"Response status: {response.status_code}", file=sys.stderr)
             print(f"Response headers: {dict(response.headers)}", file=sys.stderr)
@@ -87,7 +109,7 @@ async def get_workouts(page: int = 1, pageSize: int = 10) -> str:
     }
     
     print(f"Making request to {url} with params: {params}", file=sys.stderr)
-    data = await make_hevy_request(url, params=params)
+    data = await make_hevy_request(url, method="GET", params=params)
 
     if not data:
         return "Unable to fetch workouts from the API."
@@ -105,6 +127,131 @@ async def get_workouts(page: int = 1, pageSize: int = 10) -> str:
         formatted_workouts.append(formatted_workout)
 
     return "\n\n---\n\n".join(formatted_workouts)
+
+@mcp.tool()
+async def get_workout(workoutId: str) -> str:
+    """Get a single workout by ID.
+
+    Args:
+        workoutId: The ID of the workout
+    """
+    if not API_KEY:
+        return (
+            "HEVY_API_KEY is required. Set it in your MCP client config "
+            "so it is available to the server process."
+        )
+    url = f"{API_BASE}/workouts/{workoutId}"
+    data = await make_hevy_request(url, method="GET")
+    if not data:
+        return f"Unable to fetch workout {workoutId}."
+    return json.dumps(data, indent=2)
+
+@mcp.tool()
+async def create_workout(payload: dict[str, Any]) -> str:
+    """Create a new workout.
+
+    Args:
+        payload: JSON body per Hevy API spec for creating a workout. Must
+            include a top-level `workout` object, for example:
+            {
+              "workout": {
+                "title": "Friday Leg Day 🔥",
+                "description": "Medium intensity leg day focusing on quads.",
+                "start_time": "2024-08-14T12:00:00Z",
+                "end_time": "2024-08-14T12:30:00Z",
+                "is_private": false,
+                "exercises": [
+                  {
+                    "exercise_template_id": "D04AC939",
+                    "superset_id": null,
+                    "notes": "Felt good today. Form was on point.",
+                    "sets": [
+                      {
+                        "type": "normal",
+                        "weight_kg": 100,
+                        "reps": 10,
+                        "distance_meters": null,
+                        "duration_seconds": null,
+                        "custom_metric": null,
+                        "rpe": null
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+    """
+    if not API_KEY:
+        return (
+            "HEVY_API_KEY is required. Set it in your MCP client config "
+            "so it is available to the server process."
+        )
+    if not isinstance(payload, dict) or "workout" not in payload or not isinstance(payload["workout"], dict):
+        return (
+            "Invalid request body. Expected a JSON object with top-level 'workout' key. "
+            "See Hevy Workouts create spec."
+        )
+    url = f"{API_BASE}/workouts"
+    data = await make_hevy_request(url, method="POST", payload=payload)
+    if not data:
+        return "Unable to create workout."
+    return json.dumps(data, indent=2)
+
+@mcp.tool()
+async def update_workout(workoutId: str, payload: dict[str, Any]) -> str:
+    """Update a workout by ID.
+
+    Args:
+        workoutId: The ID of the workout
+        payload: JSON body with fields to update
+    """
+    if not API_KEY:
+        return (
+            "HEVY_API_KEY is required. Set it in your MCP client config "
+            "so it is available to the server process."
+        )
+    url = f"{API_BASE}/workouts/{workoutId}"
+    data = await make_hevy_request(url, method="PUT", payload=payload)
+    if not data:
+        return f"Unable to update workout {workoutId}."
+    return json.dumps(data, indent=2)
+
+@mcp.tool()
+async def get_workouts_count() -> str:
+    """Get the total number of workouts on the account."""
+    if not API_KEY:
+        return (
+            "HEVY_API_KEY is required. Set it in your MCP client config "
+            "so it is available to the server process."
+        )
+    url = f"{API_BASE}/workouts/count"
+    data = await make_hevy_request(url, method="GET")
+    if not data:
+        return "Unable to fetch workouts count."
+    return json.dumps(data, indent=2)
+
+@mcp.tool()
+async def get_workout_events(page: int = 1, pageSize: int = 50, since: str | None = None) -> str:
+    """Get a paged list of workout events since a given date.
+
+    Args:
+        page: Page number
+        pageSize: Page size
+        since: ISO8601 timestamp to filter events since
+    """
+    if not API_KEY:
+        return (
+            "HEVY_API_KEY is required. Set it in your MCP client config "
+            "so it is available to the server process."
+        )
+    url = f"{API_BASE}/workouts/events"
+    params: dict[str, Any] = {"page": page, "pageSize": pageSize}
+    if since:
+        params["since"] = since
+    data = await make_hevy_request(url, method="GET", params=params)
+    if not data:
+        return "Unable to fetch workout events."
+    return json.dumps(data, indent=2)
 
 if __name__ == "__main__":
     try:
