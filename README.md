@@ -127,9 +127,5 @@ Once the application is running, you can:
 ### Available Commands
 
 - `help` - Show available commands
-- `stats` - Display system statistics
-- `workouts` - Show workout history (requires Hevy API)
-- `summary` - Show workout summary (requires Hevy API)
-- `create workout` - Create a new workout (requires Hevy API)
 - `weekly plan` - Generate personalized weekly plan
 - `quit`/`exit`/`q` - Exit the application

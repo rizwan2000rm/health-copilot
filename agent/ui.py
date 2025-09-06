@@ -61,14 +61,6 @@ class AsyncConsoleUI:
                     break
                 elif user_input.lower() == 'help':
                     self._show_help()
-                elif user_input.lower() == 'stats':
-                    self._show_stats()
-                elif user_input.lower() == 'workouts':
-                    await self._show_workout_history()
-                elif user_input.lower() == 'summary':
-                    await self._show_workout_summary()
-                elif user_input.lower().startswith('create workout'):
-                    await self._create_workout_interactive()
                 elif user_input.lower() in ['weekly plan', 'plan', 'create plan']:
                     await self._create_weekly_plan()
                 elif user_input:
@@ -87,65 +79,10 @@ class AsyncConsoleUI:
     def _show_help(self):
         """Show available commands."""
         print("\n📋 Available Commands:")
-        print("  help           - Show this help message")
-        print("  stats          - Show system statistics")
-        print("  workouts       - Show workout history")
-        print("  summary        - Show workout summary")
-        print("  create workout - Create a new workout")
-        print("  weekly plan    - Create personalized weekly plan")
+        print("  help           - Show available commands")
+        print("  weekly plan    - Generate personalized weekly plan")
         print("  quit/exit/q    - Exit the application")
         print("\n💡 You can also ask fitness questions directly!")
-    
-    def _show_stats(self):
-        """Show system statistics."""
-        stats = self.coach.get_stats()
-        print(f"\n📊 System Statistics:")
-        print(f"  Model: {stats['model_name']}")
-        print(f"  Knowledge base: {'✅' if stats['has_retriever'] else '❌'}")
-        print(f"  MCP tools: {'✅' if stats['tools_loaded'] > 0 else '❌'}")
-        print(f"  MCP available: {'✅' if stats['mcp_available'] else '❌'}")
-        
-        # Show available knowledge files
-        context_dir = os.path.join(os.path.dirname(__file__), "context")
-        if os.path.exists(context_dir):
-            knowledge_files = os.listdir(context_dir)
-            print(f"  Knowledge files: {len(knowledge_files)} files")
-            for file in knowledge_files:
-                print(f"    - {file}")
-        
-        # Show MCP tool names if available
-        if stats['tools_loaded'] > 0:
-            print(f"  Available MCP tools:")
-            for tool_name in stats['tool_names']:
-                print(f"    - {tool_name}")
-    
-    async def _show_workout_history(self):
-        """Show workout history using MCP tools."""
-        print("📋 Fetching workout history...")
-        history = await self.coach.mcp.get_workout_history()
-        print(f"\n{history}")
-    
-    async def _show_workout_summary(self):
-        """Show workout summary using MCP tools."""
-        print("📊 Fetching workout summary...")
-        summary = await self.coach.workout_manager.get_workout_summary()
-        print(f"\n{summary}")
-    
-    async def _create_workout_interactive(self):
-        """Interactive workout creation."""
-        print("\n🏋️‍♂️ Create New Workout")
-        print("=" * 30)
-        
-        name = input("Workout name: ").strip()
-        if not name:
-            print("❌ Workout name is required")
-            return
-        
-        notes = input("Notes (optional): ").strip()
-        
-        print("📝 Creating workout...")
-        result = await self.coach.workout_manager.create_simple_workout(name, notes)
-        print(f"\n{result}")
     
     async def _create_weekly_plan(self):
         """Create a personalized weekly plan."""
