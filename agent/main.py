@@ -69,6 +69,8 @@ class AsyncConsoleUI(ConsoleUI):
                     await self._show_workout_summary()
                 elif user_input.lower().startswith('create workout'):
                     await self._create_workout_interactive()
+                elif user_input.lower() in ['weekly plan', 'plan', 'create plan']:
+                    await self._create_weekly_plan()
                 elif user_input:
                     print("🤖 Coach: ", end="", flush=True)
                     response = await self.coach.get_response(user_input)
@@ -91,6 +93,7 @@ class AsyncConsoleUI(ConsoleUI):
         print("  workouts       - Show workout history")
         print("  summary        - Show workout summary")
         print("  create workout - Create a new workout")
+        print("  weekly plan    - Create personalized weekly plan")
         print("  quit/exit/q    - Exit the application")
         print("\n💡 You can also ask fitness questions directly!")
     
@@ -131,6 +134,17 @@ class AsyncConsoleUI(ConsoleUI):
         print("📝 Creating workout...")
         result = await self.coach.workout_manager.create_simple_workout(name, notes)
         print(f"\n{result}")
+    
+    async def _create_weekly_plan(self):
+        """Create a personalized weekly plan."""
+        print("\n🏋️‍♂️ Starting Weekly Planning Process...")
+        try:
+            plan = await self.coach.create_weekly_plan()
+            print(f"\n🎉 Weekly planning completed!")
+            print(f"Final plan:\n{plan}")
+        except Exception as e:
+            print(f"❌ Error creating weekly plan: {e}")
+            print("Please make sure MCP tools are properly configured.")
 
 
 async def main():
