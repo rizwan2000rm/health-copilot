@@ -284,7 +284,7 @@ class RoutineFoldersResponse(HevyResponse):
 class WebhookSubscription(BaseModel):
     """Webhook subscription model."""
     id: Optional[str] = Field(None, description="Subscription ID")
-    url: str = Field(..., description="Webhook URL", regex=r'^https?://.+')
+    url: str = Field(..., description="Webhook URL", pattern=r'^https?://.+')
     auth_token: str = Field(..., alias="authToken", description="Auth token for webhook", min_length=1)
     created_at: Optional[datetime] = Field(None, description="Creation timestamp")
     updated_at: Optional[datetime] = Field(None, description="Last update timestamp")
@@ -336,7 +336,7 @@ class CreateRoutineFolderRequest(BaseModel):
 
 class CreateWebhookRequest(BaseModel):
     """Request model for creating a webhook subscription."""
-    url: str = Field(..., description="Webhook URL", regex=r'^https?://.+')
+    url: str = Field(..., description="Webhook URL", pattern=r'^https?://.+')
     auth_token: str = Field(..., alias="authToken", description="Auth token", min_length=1)
     
     class Config:
