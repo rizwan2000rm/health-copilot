@@ -54,19 +54,35 @@ class MCPIntegration:
     def _setup_mcp_connection(self) -> None:
         """Set up MCP connection to Hevy server."""
         try:
-            # Configure MCP server (assuming your Hevy MCP server is running locally)
-            hevy_mcp_path = os.path.join(self.base_dir, "..", "hevy-mcp", "app.py")
+            # Configure MCP server using uv as specified in the config
+            hevy_mcp_dir = os.path.join(self.base_dir, "..", "hevy-mcp")
             
+            # Get environment variables to pass to the MCP server
+            env_vars = {}
+            hevy_api_key = os.getenv("HEVY_API_KEY")
+            if hevy_api_key:
+                env_vars["HEVY_API_KEY"] = hevy_api_key
+                print(f"✅ Passing HEVY_API_KEY to MCP server: {hevy_api_key[:10]}...")
+            else:
+                print("⚠️ HEVY_API_KEY not found in environment - MCP server may not work properly")
+            
+            # Use uv to run the MCP server as specified in the config
             server_config = {
                 "hevy": {
-                    "command": "python",
-                    "args": [hevy_mcp_path],
-                    "transport": "stdio"
+                    "command": "/Users/rizwan/.local/bin/uv",
+                    "args": [
+                        "--directory",
+                        hevy_mcp_dir,
+                        "run",
+                        "app.py"
+                    ],
+                    "transport": "stdio",
+                    "env": env_vars
                 }
             }
             
             self.mcp_client = MultiServerMCPClient(server_config)
-            print("✅ MCP client initialized")
+            print("✅ MCP client initialized with environment variables")
         except Exception as e:
             print(f"⚠️ Failed to initialize MCP client: {e}")
             self.mcp_client = None
@@ -116,9 +132,12 @@ class MCPIntegration:
             return "Workout history tool not found."
         
         try:
+            print(f"🔍 Fetching workout history: page={page}, page_size={page_size}")
             result = await workouts_tool.ainvoke({"page": page, "pageSize": page_size})
+            print(f"📊 Retrieved workout data: {result[:300]}..." if len(result) > 300 else f"📊 Retrieved workout data: {result}")
             return result
         except Exception as e:
+            print(f"❌ Error retrieving workout history: {e}")
             return f"Error retrieving workout history: {e}"
     
     async def create_workout(self, workout_data: Dict[str, Any]) -> str:
@@ -221,6 +240,90 @@ class MCPIntegration:
         """Check if MCP tools are loaded."""
         return len(self.mcp_tools) > 0
     
+    async def create_routine_folder(self, folder_data: Dict[str, Any]) -> str:
+        """Create a new routine folder using MCP tools."""
+        if not self.mcp_tools:
+            return "Routine folder creation tools are not available."
+        
+        # Find the create_routine_folder tool
+        create_folder_tool = None
+        for tool in self.mcp_tools:
+            if tool.name == "create_routine_folder":
+                create_folder_tool = tool
+                break
+        
+        if not create_folder_tool:
+            return "Routine folder creation tool not found."
+        
+        try:
+            result = await create_folder_tool.ainvoke({"payload": folder_data})
+            return result
+        except Exception as e:
+            return f"Error creating routine folder: {e}"
+    
+    async def create_routine(self, routine_data: Dict[str, Any]) -> str:
+        """Create a new routine using MCP tools."""
+        if not self.mcp_tools:
+            return "Routine creation tools are not available."
+        
+        # Find the create_routine tool
+        create_routine_tool = None
+        for tool in self.mcp_tools:
+            if tool.name == "create_routine":
+                create_routine_tool = tool
+                break
+        
+        if not create_routine_tool:
+            return "Routine creation tool not found."
+        
+        try:
+            result = await create_routine_tool.ainvoke({"payload": routine_data})
+            return result
+        except Exception as e:
+            return f"Error creating routine: {e}"
+    
+    async def get_routines(self, page: int = 1, page_size: int = 5) -> str:
+        """Get routines using MCP tools."""
+        if not self.mcp_tools:
+            return "Routine retrieval tools are not available."
+        
+        # Find the get_routines tool
+        get_routines_tool = None
+        for tool in self.mcp_tools:
+            if tool.name == "get_routines":
+                get_routines_tool = tool
+                break
+        
+        if not get_routines_tool:
+            return "Routine retrieval tool not found."
+        
+        try:
+            result = await get_routines_tool.ainvoke({"page": page, "pageSize": page_size})
+            return result
+        except Exception as e:
+            return f"Error retrieving routines: {e}"
+    
+    async def get_routine_folders(self, page: int = 1, page_size: int = 5) -> str:
+        """Get routine folders using MCP tools."""
+        if not self.mcp_tools:
+            return "Routine folder retrieval tools are not available."
+        
+        # Find the get_routine_folders tool
+        get_folders_tool = None
+        for tool in self.mcp_tools:
+            if tool.name == "get_routine_folders":
+                get_folders_tool = tool
+                break
+        
+        if not get_folders_tool:
+            return "Routine folder retrieval tool not found."
+        
+        try:
+            result = await get_folders_tool.ainvoke({"page": page, "pageSize": page_size})
+            return result
+        except Exception as e:
+            return f"Error retrieving routine folders: {e}"
+
     def get_stats(self) -> Dict[str, Any]:
         """Get MCP integration statistics."""
         return {
@@ -230,6 +333,47 @@ class MCPIntegration:
             "agent_created": self.agent is not None,
             "tool_names": self.get_tool_names()
         }
+
+
+class MCPRoutineManager:
+    """High-level routine management using MCP tools."""
+    
+    def __init__(self, mcp_integration: MCPIntegration):
+        """
+        Initialize routine manager.
+        
+        Args:
+            mcp_integration: MCP integration instance
+        """
+        self.mcp = mcp_integration
+    
+    async def create_folder(self, title: str) -> str:
+        """Create a new routine folder with the given title."""
+        folder_data = {
+            "routine_folder": {
+                "title": title
+            }
+        }
+        return await self.mcp.create_routine_folder(folder_data)
+    
+    async def create_simple_routine(self, title: str, folder_id: int = None, notes: str = None) -> str:
+        """Create a simple routine with just title, optional folder, and notes."""
+        routine_data = {
+            "routine": {
+                "title": title,
+                "folder_id": folder_id,
+                "notes": notes
+            }
+        }
+        return await self.mcp.create_routine(routine_data)
+    
+    async def get_all_folders(self) -> str:
+        """Get all routine folders."""
+        return await self.mcp.get_routine_folders()
+    
+    async def get_all_routines(self) -> str:
+        """Get all routines."""
+        return await self.mcp.get_routines()
 
 
 class MCPWorkoutManager:
@@ -260,8 +404,13 @@ class MCPWorkoutManager:
     
     async def get_workout_summary(self) -> str:
         """Get a summary of workout statistics."""
+        print("📊 Generating workout summary...")
+        
         count_result = await self.mcp.get_workouts_count()
         recent_result = await self.mcp.get_workout_history(page=1, page_size=3)
+        
+        print(f"📈 Total workout count: {count_result}")
+        print(f"📋 Recent workouts retrieved: {recent_result[:200]}..." if len(recent_result) > 200 else f"📋 Recent workouts retrieved: {recent_result}")
         
         summary = f"Workout Summary:\n\n"
         summary += f"Total Workouts: {count_result}\n\n"

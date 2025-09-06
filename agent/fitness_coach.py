@@ -7,7 +7,7 @@ prompt templates, and response generation with document retrieval.
 
 import os
 import asyncio
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Union
 from langchain_ollama import ChatOllama
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnablePassthrough
@@ -84,10 +84,10 @@ or wants to track workouts, use the available tools."""
         if not os.path.exists(context_dir):
             print(f"❌ Context directory not found: {context_dir}")
             return False
-        
+    
         files = os.listdir(context_dir)
         print(f"📄 Found {len(files)} files in context directory: {files}")
-        
+
         vectorstore = self.doc_processor.setup_knowledge_base(context_dir)
         
         if vectorstore is None:
@@ -154,9 +154,11 @@ or wants to track workouts, use the available tools."""
         # Check cache first for faster response
         cached_response = self.cache.get(user_input)
         if cached_response:
+            print("💾 Using cached response")
             return cached_response
         
         # Get response from the model
+        referenced_files = []
         if self.agent:
             # Use agent with tools
             response = await self.agent.ainvoke({"messages": [("user", user_input)]})
@@ -173,6 +175,12 @@ or wants to track workouts, use the available tools."""
             # Fallback to basic chain without tools
             if self.retriever:
                 def format_docs(docs):
+                    # Extract source file information for logging
+                    for doc in docs:
+                        if 'source' in doc.metadata:
+                            source_file = doc.metadata['source']
+                            if source_file not in referenced_files:
+                                referenced_files.append(source_file)
                     return "\n\n".join(doc.page_content for doc in docs)
                 
                 chain = (
@@ -182,6 +190,10 @@ or wants to track workouts, use the available tools."""
                     | StrOutputParser()
                 )
                 response_text = chain.invoke(user_input)
+                
+                # Log referenced files if any
+                if referenced_files:
+                    print(f"📚 Referenced knowledge files: {referenced_files}")
             else:
                 chain = self.prompt | self.model | StrOutputParser()
                 response_text = chain.invoke({"input": user_input})
@@ -248,8 +260,8 @@ or wants to track workouts, use the available tools."""
         Returns:
             Final approved weekly plan
         """
-        print("🏋️‍♂️ AI FITNESS COACH - WEEKLY PLANNING SYSTEM")
-        print("=" * 50)
+        print("🏋️‍♂️ Weekly Planning System")
+        print("=" * 30)
         
         # Step 1: Show user what we're building
         await self._show_planning_overview()
@@ -262,15 +274,15 @@ or wants to track workouts, use the available tools."""
         
         # Step 4: Iterative feedback loop
         while True:
-            print("\n" + "=" * 50)
+            print("\n" + "=" * 30)
             print("📋 YOUR WEEKLY PLAN")
-            print("=" * 50)
+            print("=" * 30)
             print(plan)
             
             feedback = input("\n🤔 What do you think? (Enter 'accept' to approve, or provide feedback): ").strip()
             
             if feedback.lower() in ['accept', 'yes', 'y', 'approve', 'good']:
-                print("\n✅ Plan approved! Creating routines in your Hevy app...")
+                print("\n✅ Plan approved! Creating routines...")
                 await self._create_routines_in_hevy(plan)
                 return plan
             
@@ -279,37 +291,19 @@ or wants to track workouts, use the available tools."""
                 return "Planning cancelled by user."
             
             else:
-                print(f"\n🔄 Updating plan based on your feedback: '{feedback}'")
+                print(f"\n🔄 Updating plan...")
                 plan = await self._update_plan_based_on_feedback(plan, feedback)
     
     async def _show_planning_overview(self) -> None:
         """Show user what we're building and explain the process."""
-        print("\n🎯 WHAT WE'RE BUILDING FOR YOU:")
-        print("-" * 30)
-        print("📊 Analyzing your last 10 days of workouts")
-        print("🔍 Identifying muscle group gaps and imbalances")
-        print("📚 Applying evidence-based training principles")
-        print("📁 Creating a 'Week XX' folder in your routines")
-        print("🏋️‍♂️ Designing 2-3 minimalist workouts (45-60 min each)")
-        print("⚡ Focusing on compound movements and essential patterns")
-        print("📈 Including progression guidelines and form cues")
-        
-        print("\n🔄 THE PROCESS:")
-        print("-" * 15)
-        print("1. I'll analyze your workout history")
-        print("2. You can share preferences (optional)")
-        print("3. I'll create your personalized plan")
-        print("4. You can review and provide feedback")
-        print("5. I'll update the plan until you're happy")
-        print("6. I'll create the routines in your Hevy app")
+        print("\n🎯 Creating personalized weekly plan...")
+        print("📊 Analyzing workout history → 📚 Applying training principles → 🏋️‍♂️ Creating routines")
         
         input("\nPress Enter to continue...")
     
     async def _collect_user_preferences(self) -> Dict[str, Any]:
         """Collect optional user preferences for the weekly plan."""
-        print("\n🎯 OPTIONAL PREFERENCES")
-        print("-" * 25)
-        print("You can skip this step by pressing Enter, or share your preferences:")
+        print("\n🎯 Optional preferences (press Enter to skip):")
         
         preferences = {
             "workout_frequency": None,
@@ -345,28 +339,40 @@ or wants to track workouts, use the available tools."""
         if goals:
             preferences["goals"] = [goal.strip() for goal in goals.split(',')]
         
-        print("\n✅ Preferences collected (or skipped). Moving to plan creation...")
+        print("✅ Moving to plan creation...")
         return preferences
     
     async def _generate_weekly_plan(self, preferences: Dict[str, Any]) -> str:
         """Generate the initial weekly plan using MCP tools and knowledge base."""
-        print("\n🔍 ANALYZING YOUR WORKOUT HISTORY...")
+        print("\n🔍 Analyzing workout history...")
         
-        # Get recent workouts
+        # Get recent workouts with detailed logging
         recent_workouts = await self.mcp.get_workout_history(page=1, page_size=10)
-        print(f"📊 Retrieved recent workouts")
+        print(f"📊 Retrieved workout data: {recent_workouts[:200]}..." if len(recent_workouts) > 200 else f"📊 Retrieved workout data: {recent_workouts}")
         
         # Get exercise templates for analysis
         exercise_templates = await self._get_exercise_templates()
+        print(f"🏋️‍♂️ Retrieved exercise templates: {exercise_templates[:200]}..." if len(exercise_templates) > 200 else f"🏋️‍♂️ Retrieved exercise templates: {exercise_templates}")
         
-        # Get scientific context
+        # Get scientific context with detailed logging
         scientific_context = ""
+        referenced_files = []
         if self.retriever:
             try:
                 docs = self.retriever.invoke("minimalist training weekly plan compound movements")
                 scientific_context = "\n\n".join([doc.page_content for doc in docs])
+                
+                # Extract source file information
+                for doc in docs:
+                    if 'source' in doc.metadata:
+                        source_file = doc.metadata['source']
+                        if source_file not in referenced_files:
+                            referenced_files.append(source_file)
+                
+                print(f"📚 Referenced knowledge files: {referenced_files}")
+                print(f"📖 Retrieved scientific context: {scientific_context[:200]}..." if len(scientific_context) > 200 else f"📖 Retrieved scientific context: {scientific_context}")
             except Exception as e:
-                print(f"⚠️ Could not retrieve scientific context: {e}")
+                print(f"⚠️ Error retrieving scientific context: {e}")
         
         # Create the planning prompt
         planning_prompt = f"""
@@ -381,7 +387,7 @@ or wants to track workouts, use the available tools."""
         USER PREFERENCES:
         {preferences}
 
-        SCIENTIFIC CONTEXT:
+        SCIENTIFIC CONTEXT (from knowledge files: {referenced_files}):
         {scientific_context}
 
         Create a comprehensive weekly plan that:
@@ -400,6 +406,7 @@ or wants to track workouts, use the available tools."""
         - Progression guidelines
         - Form cues and safety notes
         - Rationale based on scientific evidence
+        - References to knowledge base files used: {referenced_files}
         """
         
         # Generate the plan using the AI model
@@ -445,7 +452,7 @@ or wants to track workouts, use the available tools."""
                         break
                 
                 if templates_tool:
-                    result = await templates_tool.ainvoke({"page": 1, "pageSize": 20})
+                    result = await templates_tool.ainvoke({"page": 1, "pageSize": 50})
                     return result
                 else:
                     return "Exercise templates tool not available"
@@ -453,6 +460,75 @@ or wants to track workouts, use the available tools."""
                 return "MCP tools not loaded"
         except Exception as e:
             return f"Error retrieving exercise templates: {e}"
+    
+    async def _get_exercise_template_mapping(self) -> Dict[str, str]:
+        """Get a mapping of exercise names to template IDs."""
+        try:
+            templates_result = await self._get_exercise_templates()
+            if "Error" in templates_result or "not available" in templates_result:
+                return self._get_fallback_exercise_mapping()
+            
+            import json
+            templates_data = json.loads(templates_result)
+            exercise_templates = templates_data.get("exercise_templates", [])
+            
+            mapping = {}
+            for template in exercise_templates:
+                title = template.get("title", "").lower()
+                template_id = template.get("id", "")
+                
+                # Create multiple mappings for common variations
+                if "bench" in title and "press" in title:
+                    mapping["bench press"] = template_id
+                    mapping["bench"] = template_id
+                elif "squat" in title:
+                    mapping["squat"] = template_id
+                elif "deadlift" in title:
+                    mapping["deadlift"] = template_id
+                elif "pull" in title and "up" in title:
+                    mapping["pull-up"] = template_id
+                    mapping["pullup"] = template_id
+                elif "push" in title and "up" in title:
+                    mapping["push-up"] = template_id
+                    mapping["pushup"] = template_id
+                elif "curl" in title and "bicep" in title:
+                    mapping["bicep curl"] = template_id
+                    mapping["curl"] = template_id
+                elif "press" in title and ("shoulder" in title or "military" in title):
+                    mapping["shoulder press"] = template_id
+                    mapping["military press"] = template_id
+                elif "lateral" in title and "raise" in title:
+                    mapping["lateral raise"] = template_id
+                elif "row" in title:
+                    mapping["row"] = template_id
+                elif "lunge" in title:
+                    mapping["lunge"] = template_id
+                elif "plank" in title:
+                    mapping["plank"] = template_id
+                elif "sit" in title and "up" in title:
+                    mapping["sit-up"] = template_id
+                    mapping["situp"] = template_id
+            
+            return mapping
+        except Exception as e:
+            print(f"Error creating exercise mapping: {e}")
+            return self._get_fallback_exercise_mapping()
+    
+    def _get_fallback_exercise_mapping(self) -> Dict[str, str]:
+        """Fallback exercise mapping when API is not available."""
+        return {
+            'bench press': '07B38369',  # Incline Bench Press (Dumbbell)
+            'squat': '5E1A7777',  # Lunge
+            'deadlift': 'D57C2EC7',  # Hip Thrust (Barbell)
+            'pull-up': '1B2B1E7C',  # Pull Up
+            'push-up': '022DF610',  # Sit Up
+            'bicep curl': '3BC06AD3',  # 21s Bicep Curl
+            'shoulder press': 'A69FF221',  # Arnold Press (Dumbbell)
+            'lateral raise': '422B08F1',  # Lateral Raise (Dumbbell)
+            'row': '1B2B1E7C',  # Pull Up
+            'lunge': '5E1A7777',  # Lunge
+            'plank': '022DF610',  # Sit Up
+        }
     
     async def _update_plan_based_on_feedback(self, current_plan: str, feedback: str) -> str:
         """Update the plan based on user feedback."""
@@ -512,8 +588,7 @@ or wants to track workouts, use the available tools."""
         await self._ensure_weekly_folder_exists()
         
         # Parse the plan and create individual routines
-        # This is a simplified version - you might want to enhance the parsing
-        routines = self._parse_plan_into_routines(plan)
+        routines = await self._parse_plan_into_routines(plan)
         
         for i, routine in enumerate(routines, 1):
             print(f"📝 Creating Routine {i}: {routine['title']}")
@@ -566,38 +641,116 @@ or wants to track workouts, use the available tools."""
         except Exception as e:
             return f"Error retrieving routine folders: {e}"
     
-    def _parse_plan_into_routines(self, plan: str) -> List[Dict[str, Any]]:
-        """Parse the plan text into individual routine objects."""
-        # This is a simplified parser - you might want to enhance this
-        # to better extract workout details from the plan text
-        
+    async def _parse_plan_into_routines(self, plan: str) -> List[Dict[str, Any]]:
+        """Parse the plan text into individual routine objects with proper exercises."""
         routines = []
         lines = plan.split('\n')
         current_routine = None
         
         for line in lines:
             line = line.strip()
-            if line.startswith('Day') or line.startswith('Workout') or line.startswith('Session'):
+            # Check for day headers
+            if (line.startswith('Day') or line.startswith('Workout') or line.startswith('Session') or 
+                line.startswith('Monday') or line.startswith('Tuesday') or line.startswith('Wednesday') or 
+                line.startswith('Thursday') or line.startswith('Friday') or line.startswith('Saturday') or 
+                line.startswith('Sunday') or '**Monday' in line or '**Tuesday' in line or '**Wednesday' in line or
+                '**Thursday' in line or '**Friday' in line or '**Saturday' in line or '**Sunday' in line):
                 if current_routine:
                     routines.append(current_routine)
                 current_routine = {
-                    "title": line,
+                    "title": line.replace('*', '').strip(),
+                    "folder_id": None,
                     "notes": "",
                     "exercises": []
                 }
             elif current_routine and line:
-                current_routine["notes"] += line + "\n"
+                # Check if this line contains exercise information
+                exercise_info = await self._extract_exercise_from_line(line)
+                if exercise_info:
+                    current_routine["exercises"].append(exercise_info)
+                else:
+                    current_routine["notes"] += line + "\n"
         
         if current_routine:
             routines.append(current_routine)
         
-        # If no routines were parsed, create a default one
+        # If no routines were parsed, create a default one with a sample exercise
         if not routines:
             routines.append({
                 "title": "Weekly Plan",
+                "folder_id": None,
                 "notes": plan,
-                "exercises": []
+                "exercises": [self._get_default_exercise()]
             })
         
+        # Ensure each routine has at least one exercise
+        for routine in routines:
+            if not routine["exercises"]:
+                routine["exercises"] = [self._get_default_exercise()]
+        
         return routines
+    
+    async def _extract_exercise_from_line(self, line: str) -> Optional[Dict[str, Any]]:
+        """Extract exercise information from a line of text."""
+        # Get dynamic exercise mapping
+        exercise_patterns = await self._get_exercise_template_mapping()
+        
+        line_lower = line.lower()
+        
+        # Skip lines that are clearly not exercises
+        if any(skip_word in line_lower for skip_word in ['**', '|', '---', 'day', 'focus area', 'summary', 'analysis']):
+            return None
+        
+        for exercise_name, template_id in exercise_patterns.items():
+            if exercise_name in line_lower:
+                # Extract sets and reps if mentioned
+                sets = 3  # default
+                reps = 10  # default
+                
+                # Look for patterns like "3 sets of 8-12 reps" or "3x8-12"
+                import re
+                sets_match = re.search(r'(\d+)\s*sets?', line_lower)
+                if sets_match:
+                    sets = int(sets_match.group(1))
+                
+                reps_match = re.search(r'(\d+)(?:-(\d+))?\s*reps?', line_lower)
+                if reps_match:
+                    reps = int(reps_match.group(1))
+                
+                print(f"🔍 Found exercise: {exercise_name} -> {template_id} ({sets} sets, {reps} reps)")
+                
+                return {
+                    "exercise_template_id": template_id,
+                    "sets": [
+                        {
+                            "type": "normal",
+                            "weight_kg": 0,  # Default weight, user can adjust
+                            "reps": reps,
+                            "distance_meters": 0,
+                            "duration_seconds": 0,
+                            "custom_metric": 0
+                        }
+                        for _ in range(sets)
+                    ],
+                    "rest_seconds": 90  # Default rest
+                }
+        
+        return None
+    
+    def _get_default_exercise(self) -> Dict[str, Any]:
+        """Get a default exercise for routines that don't have any exercises."""
+        return {
+            "exercise_template_id": "3BC06AD3",  # 21s Bicep Curl
+            "sets": [
+                {
+                    "type": "normal",
+                    "weight_kg": 0,
+                    "reps": 10,
+                    "distance_meters": 0,
+                    "duration_seconds": 0,
+                    "custom_metric": 0
+                }
+            ],
+            "rest_seconds": 60
+        }
     

@@ -21,33 +21,34 @@ class AsyncConsoleUI(ConsoleUI):
     
     async def run_async(self):
         """Run the console UI asynchronously."""
-        print("🏋️‍♂️ AI Fitness Coach with MCP Integration")
-        print("=" * 60)
+        print("🏋️‍♂️ AI Fitness Coach")
+        print("=" * 40)
         
         # Set up knowledge base
         context_dir = os.path.join(os.path.dirname(__file__), "context")
+        print(f"📁 Setting up knowledge base from: {context_dir}")
+        
+        # List available knowledge files
+        if os.path.exists(context_dir):
+            knowledge_files = os.listdir(context_dir)
+            print(f"📚 Available knowledge files: {knowledge_files}")
+        else:
+            print(f"❌ Knowledge directory not found: {context_dir}")
+        
         self.coach.setup_knowledge_base(context_dir)
         
         # Set up agent with MCP tools
         await self.coach.setup_agent()
         
-        print("\n💡 Available features:")
-        print("  • AI-powered fitness coaching")
-        print("  • Document-based knowledge retrieval")
-        print("  • Workout history tracking (via MCP)")
-        print("  • Workout creation and management")
-        print("  • Response caching for faster interactions")
+        print("\n💡 Features: AI coaching, workout tracking, response caching")
         
         if self.coach.mcp.has_tools():
-            tool_names = self.coach.mcp.get_tool_names()
-            tool_descriptions = self.coach.mcp.get_tool_descriptions()
-            print(f"\n🔧 Loaded {len(tool_names)} MCP tools:")
-            for tool_name in tool_names:
-                print(f"  • {tool_name}: {tool_descriptions.get(tool_name, 'No description')}")
+            tool_count = len(self.coach.mcp.get_tool_names())
+            print(f"🔧 {tool_count} MCP tools loaded")
         
-        print("\n" + "=" * 60)
+        print("\n" + "=" * 40)
         print("Type 'help' for commands, 'quit' to exit")
-        print("=" * 60)
+        print("=" * 40)
         
         while True:
             try:
@@ -106,6 +107,20 @@ class AsyncConsoleUI(ConsoleUI):
         print(f"  Knowledge base: {'✅' if stats['has_retriever'] else '❌'}")
         print(f"  MCP tools: {'✅' if stats['tools_loaded'] > 0 else '❌'}")
         print(f"  MCP available: {'✅' if stats['mcp_available'] else '❌'}")
+        
+        # Show available knowledge files
+        context_dir = os.path.join(os.path.dirname(__file__), "context")
+        if os.path.exists(context_dir):
+            knowledge_files = os.listdir(context_dir)
+            print(f"  Knowledge files: {len(knowledge_files)} files")
+            for file in knowledge_files:
+                print(f"    - {file}")
+        
+        # Show MCP tool names if available
+        if stats['tools_loaded'] > 0:
+            print(f"  Available MCP tools:")
+            for tool_name in stats['tool_names']:
+                print(f"    - {tool_name}")
     
     async def _show_workout_history(self):
         """Show workout history using MCP tools."""
@@ -149,6 +164,23 @@ class AsyncConsoleUI(ConsoleUI):
 
 async def main():
     """Main application entry point."""
+    # Check for Hevy API key
+    import os
+    if not os.getenv("HEVY_API_KEY"):
+        print("⚠️  HEVY_API_KEY not found in environment variables.")
+        print("   To enable workout tracking features, you need to set your Hevy API key.")
+        print("   You can:")
+        print("   1. Set it: export HEVY_API_KEY=your_key_here")
+        print("   2. Run with: HEVY_API_KEY=your_key_here python3 main.py")
+        print("   3. Or enter it now (will be used for this session only):")
+        
+        api_key = input("Enter your Hevy API key (or press Enter to skip): ").strip()
+        if api_key:
+            os.environ["HEVY_API_KEY"] = api_key
+            print("✅ API key set for this session")
+        else:
+            print("❌ No API key provided. Workout tracking features will be limited.")
+    
     # Initialize the AI Fitness Coach
     coach = FitnessCoach(model_name="llama3.2:3b")
     
