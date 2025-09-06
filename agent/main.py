@@ -9,14 +9,12 @@ with MCP tool integration for workout tracking.
 import os
 import asyncio
 from fitness_coach import FitnessCoach
-from console_ui import ConsoleUI
 
 
-class AsyncConsoleUI(ConsoleUI):
-    """Async version of ConsoleUI for MCP integration."""
+class AsyncConsoleUI:
+    """Async console UI for MCP integration."""
     
     def __init__(self, coach):
-        super().__init__(coach)
         self.coach = coach
     
     async def run_async(self):
