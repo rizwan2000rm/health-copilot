@@ -19,9 +19,10 @@ async def get_exercise_templates(page: PageNumber = 1, pageSize: PageSize = 5) -
     
     Args:
         page: Page number (default: 1, must be 1 or greater)
-        pageSize: Number of templates per page (default: 5, max: 10)
+        pageSize: Number of templates per page (default: 5, max: 100)
         
     Note: Most users only need the first page with default pageSize=5.
+    This endpoint supports pageSize up to 100.
     """
     if not API_KEY:
         return (

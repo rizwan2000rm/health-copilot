@@ -26,6 +26,7 @@ async def get_routines(page: PageNumber = 1, pageSize: PageSize = 5) -> str:
         pageSize: Number of routines per page (default: 5, max: 10)
         
     Note: Most users only need the first page with default pageSize=5.
+    This endpoint supports pageSize up to 10.
     """
     if not API_KEY:
         return (
@@ -162,6 +163,7 @@ async def get_routine_folders(page: PageNumber = 1, pageSize: PageSize = 5) -> s
         pageSize: Number of folders per page (default: 5, max: 10)
         
     Note: Most users only need the first page with default pageSize=5.
+    This endpoint supports pageSize up to 10.
     """
     if not API_KEY:
         return (

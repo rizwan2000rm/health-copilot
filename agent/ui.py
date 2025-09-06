@@ -93,7 +93,7 @@ class AsyncConsoleUI:
                 elif user_input.lower() == 'help':
                     self._show_help()
                 elif user_input.lower() in ['weekly plan', 'plan', 'create plan']:
-                    print("🤖 Coach: I can help you create a weekly plan! Please ask me about your fitness goals and I'll create a personalized plan using the available tools.")
+                    await self._generate_weekly_plan()
                 elif user_input:
                     print("🤖 Coach: ", end="", flush=True)
                     response = await self.coach.get_response(user_input)
@@ -106,6 +106,15 @@ class AsyncConsoleUI:
                 break
             except Exception as e:
                 print(f"❌ Error: {e}")
+    
+    async def _generate_weekly_plan(self):
+        """Generate a comprehensive weekly workout plan."""
+        print("🏋️‍♂️ Generating your personalized weekly workout plan...")
+        print("=" * 50)
+        
+        print("🤖 Coach: ", end="", flush=True)
+        response = await self.coach.generate_weekly_plan()
+        print(response)
     
     def _show_help(self):
         """Show available commands."""

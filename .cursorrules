@@ -17,3 +17,4 @@
 - Write clean, well-structured code
 - Follow existing code patterns and conventions
 - Ensure code is production-ready
+- Put related code together in related files

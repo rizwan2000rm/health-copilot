@@ -26,6 +26,7 @@ async def get_workouts(page: PageNumber = 1, pageSize: PageSize = 5) -> str:
         pageSize: Number of workouts per page (default: 5, max: 10)
         
     Note: Most users only need the first page with default pageSize=5.
+    This endpoint supports pageSize up to 10.
     """
     if not API_KEY:
         return (
@@ -203,6 +204,7 @@ async def get_workout_events(page: PageNumber = 1, pageSize: PageSize = 10, sinc
         since: ISO8601 timestamp to filter events since (optional)
         
     Note: Most users only need the first page with default pageSize=10.
+    This endpoint supports pageSize up to 50.
     """
     if not API_KEY:
         return (
