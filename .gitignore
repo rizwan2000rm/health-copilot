@@ -186,16 +186,6 @@ $RECYCLE.BIN/
 chroma_db/
 *.db-journal
 
-# Document files (PDFs, text files with personal content)
-*.pdf
-*.txt
-context/
-documents/
-docs/
-*.doc
-*.docx
-*.odt
-*.rtf
 
 # Log files
 *.log
