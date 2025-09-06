@@ -117,13 +117,11 @@ Provide a concise, practical workout solution with form cues and modifications. 
 
     prompt = ChatPromptTemplate.from_template(template)
     
-    # Create optimized chains
+    # Create the chain
     if retriever:
-        # Optimized chain with retrieval
+        # Chain with retrieval
         def format_docs(docs):
-            # Limit context length for faster processing
-            context = "\n\n".join(doc.page_content[:500] for doc in docs)  # Truncate long docs
-            return context
+            return "\n\n".join(doc.page_content for doc in docs)
         
         chain = (
             {"context": retriever | format_docs, "input": RunnablePassthrough()}
@@ -132,7 +130,7 @@ Provide a concise, practical workout solution with form cues and modifications. 
             | StrOutputParser()
         )
     else:
-        # Optimized chain without retrieval
+        # Chain without retrieval
         chain = prompt | model | StrOutputParser()
     
     print("🏋️ Welcome to your AI Fitness Coach!")
