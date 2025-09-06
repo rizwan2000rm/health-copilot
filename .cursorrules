@@ -1,0 +1,19 @@
+# Cursor Rules for Health Copilot Project
+
+## Testing and Building
+
+- Do not run tests or build processes - these will be done manually
+- Do not create throwaway files for testing or experimentation
+- Focus on code implementation without executing test suites
+
+## Documentation
+
+- Document everything in a single README file
+- Update the README file whenever it's relevant to do so
+- Keep documentation current and comprehensive
+
+## Code Quality
+
+- Write clean, well-structured code
+- Follow existing code patterns and conventions
+- Ensure code is production-ready
