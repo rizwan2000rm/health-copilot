@@ -1,0 +1,11 @@
+langchain
+langchain-ollama
+langchain-chroma
+chromadb
+langchain-community
+pypdf
+mcp[cli]
+httpx
+langchain-mcp-adapters
+python-dotenv
+langgraph
