@@ -1,11 +1,15 @@
-from typing import Any
+from typing import Any, Optional
 import json
 from .constants import API_BASE, API_KEY
 from .common import mcp, make_hevy_request
+from .types import (
+    WebhookSubscription,
+    CreateWebhookRequest
+)
 
 
 @mcp.tool()
-async def create_webhook_subscription(payload: dict[str, Any]) -> str:
+async def create_webhook_subscription(payload: CreateWebhookRequest) -> str:
     """Create a new webhook subscription.
     
     Args:
@@ -27,12 +31,20 @@ async def create_webhook_subscription(payload: dict[str, Any]) -> str:
         )
 
     url = f"{API_BASE}/webhook-subscription"
-    result = await make_hevy_request(url, method="POST", payload=payload)
+    # Convert Pydantic model to dict for API request
+    payload_dict = payload.model_dump()
+    result = await make_hevy_request(url, method="POST", payload=payload_dict)
     
     if isinstance(result, tuple):
         return result[1]  # Return error message
     
-    return json.dumps(result, indent=2)
+    # Validate response with Pydantic model
+    try:
+        validated_response = WebhookSubscription(**result)
+        return json.dumps(validated_response.model_dump(), indent=2)
+    except Exception as e:
+        # If validation fails, return raw response with warning
+        return f"Warning: Response validation failed ({e}). Raw response:\n{json.dumps(result, indent=2)}"
 
 
 @mcp.tool()
@@ -53,7 +65,13 @@ async def get_webhook_subscription() -> str:
     if isinstance(result, tuple):
         return result[1]  # Return error message
     
-    return json.dumps(result, indent=2)
+    # Validate response with Pydantic model
+    try:
+        validated_response = WebhookSubscription(**result)
+        return json.dumps(validated_response.model_dump(), indent=2)
+    except Exception as e:
+        # If validation fails, return raw response with warning
+        return f"Warning: Response validation failed ({e}). Raw response:\n{json.dumps(result, indent=2)}"
 
 
 @mcp.tool()
@@ -74,4 +92,5 @@ async def delete_webhook_subscription() -> str:
     if isinstance(result, tuple):
         return result[1]  # Return error message
     
-    return json.dumps(result, indent=2)
+    # For DELETE operations, we typically get a success message or empty response
+    return json.dumps(result, indent=2) if result else "Webhook subscription deleted successfully"

@@ -1,11 +1,20 @@
-from typing import Any
+from typing import Any, Optional
 import json
 from .constants import API_BASE, API_KEY
 from .common import mcp, make_hevy_request
+from .types import (
+    ExerciseTemplatesResponse, 
+    ExerciseTemplate, 
+    ExerciseHistoryResponse,
+    ExerciseTemplateID,
+    PageNumber,
+    PageSize,
+    ISODateTime
+)
 
 
 @mcp.tool()
-async def get_exercise_templates(page: int = 1, pageSize: int = 5) -> str:
+async def get_exercise_templates(page: PageNumber = 1, pageSize: PageSize = 5) -> str:
     """Get exercise templates available on the account.
     
     Args:
@@ -27,11 +36,17 @@ async def get_exercise_templates(page: int = 1, pageSize: int = 5) -> str:
     if isinstance(result, tuple):
         return result[1]  # Return error message
     
-    return json.dumps(result, indent=2)
+    # Validate response with Pydantic model
+    try:
+        validated_response = ExerciseTemplatesResponse(**result)
+        return json.dumps(validated_response.model_dump(), indent=2)
+    except Exception as e:
+        # If validation fails, return raw response with warning
+        return f"Warning: Response validation failed ({e}). Raw response:\n{json.dumps(result, indent=2)}"
 
 
 @mcp.tool()
-async def get_exercise_template(exerciseTemplateId: str) -> str:
+async def get_exercise_template(exerciseTemplateId: ExerciseTemplateID) -> str:
     """Get a single exercise template by ID.
     
     Args:
@@ -51,14 +66,20 @@ async def get_exercise_template(exerciseTemplateId: str) -> str:
     if isinstance(result, tuple):
         return result[1]  # Return error message
     
-    return json.dumps(result, indent=2)
+    # Validate response with Pydantic model
+    try:
+        validated_response = ExerciseTemplate(**result)
+        return json.dumps(validated_response.model_dump(), indent=2)
+    except Exception as e:
+        # If validation fails, return raw response with warning
+        return f"Warning: Response validation failed ({e}). Raw response:\n{json.dumps(result, indent=2)}"
 
 
 @mcp.tool()
 async def get_exercise_history(
-    exerciseTemplateId: str, 
-    start_date: str | None = None, 
-    end_date: str | None = None
+    exerciseTemplateId: ExerciseTemplateID, 
+    start_date: Optional[ISODateTime] = None, 
+    end_date: Optional[ISODateTime] = None
 ) -> str:
     """Get exercise history for a specific exercise template.
     
@@ -94,4 +115,10 @@ async def get_exercise_history(
     if isinstance(result, tuple):
         return result[1]  # Return error message
     
-    return json.dumps(result, indent=2)
+    # Validate response with Pydantic model
+    try:
+        validated_response = ExerciseHistoryResponse(**result)
+        return json.dumps(validated_response.model_dump(), indent=2)
+    except Exception as e:
+        # If validation fails, return raw response with warning
+        return f"Warning: Response validation failed ({e}). Raw response:\n{json.dumps(result, indent=2)}"

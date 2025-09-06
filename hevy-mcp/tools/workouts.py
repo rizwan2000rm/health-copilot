@@ -1,12 +1,24 @@
-from typing import Any
+from typing import Any, Optional
 import sys
 import json
 from .constants import API_BASE, API_KEY
 from .common import mcp, make_hevy_request
+from .types import (
+    WorkoutsResponse,
+    Workout,
+    WorkoutCountResponse,
+    WorkoutEventsResponse,
+    CreateWorkoutRequest,
+    UpdateWorkoutRequest,
+    WorkoutID,
+    PageNumber,
+    PageSize,
+    ISODateTime
+)
 
 
 @mcp.tool()
-async def get_workouts(page: int = 1, pageSize: int = 5) -> str:
+async def get_workouts(page: PageNumber = 1, pageSize: PageSize = 5) -> str:
     """Get workouts for a user.
 
     Args:
@@ -39,16 +51,25 @@ async def get_workouts(page: int = 1, pageSize: int = 5) -> str:
     if not result["workouts"]:
         return "No workouts found for this user."
 
-    formatted_workouts = []
-    for i, workout in enumerate(result["workouts"], 1):
-        formatted_workout = f"Workout {i}:\n{workout}"
-        formatted_workouts.append(formatted_workout)
-
-    return "\n\n---\n\n".join(formatted_workouts)
+    # Validate response with Pydantic model
+    try:
+        validated_response = WorkoutsResponse(**result)
+        formatted_workouts = []
+        for i, workout in enumerate(validated_response.workouts, 1):
+            formatted_workout = f"Workout {i}:\n{workout.model_dump()}"
+            formatted_workouts.append(formatted_workout)
+        return "\n\n---\n\n".join(formatted_workouts)
+    except Exception as e:
+        # If validation fails, fall back to original formatting
+        formatted_workouts = []
+        for i, workout in enumerate(result["workouts"], 1):
+            formatted_workout = f"Workout {i}:\n{workout}"
+            formatted_workouts.append(formatted_workout)
+        return f"Warning: Response validation failed ({e}). Raw response:\n\n" + "\n\n---\n\n".join(formatted_workouts)
 
 
 @mcp.tool()
-async def get_workout(workoutId: str) -> str:
+async def get_workout(workoutId: WorkoutID) -> str:
     """Get a single workout by ID.
 
     Args:
@@ -67,11 +88,17 @@ async def get_workout(workoutId: str) -> str:
     if isinstance(result, tuple):
         return result[1]  # Return error message
     
-    return json.dumps(result, indent=2)
+    # Validate response with Pydantic model
+    try:
+        validated_response = Workout(**result)
+        return json.dumps(validated_response.model_dump(), indent=2)
+    except Exception as e:
+        # If validation fails, return raw response with warning
+        return f"Warning: Response validation failed ({e}). Raw response:\n{json.dumps(result, indent=2)}"
 
 
 @mcp.tool()
-async def create_workout(payload: dict[str, Any]) -> str:
+async def create_workout(payload: CreateWorkoutRequest) -> str:
     """Create a new workout.
 
     Args:
@@ -90,16 +117,24 @@ async def create_workout(payload: dict[str, Any]) -> str:
             "so it is available to the server process."
         )
     url = f"{API_BASE}/workouts"
-    result = await make_hevy_request(url, method="POST", payload=payload)
+    # Convert Pydantic model to dict for API request
+    payload_dict = payload.model_dump()
+    result = await make_hevy_request(url, method="POST", payload=payload_dict)
     
     if isinstance(result, tuple):
         return result[1]  # Return error message
     
-    return json.dumps(result, indent=2)
+    # Validate response with Pydantic model
+    try:
+        validated_response = Workout(**result)
+        return json.dumps(validated_response.model_dump(), indent=2)
+    except Exception as e:
+        # If validation fails, return raw response with warning
+        return f"Warning: Response validation failed ({e}). Raw response:\n{json.dumps(result, indent=2)}"
 
 
 @mcp.tool()
-async def update_workout(workoutId: str, payload: dict[str, Any]) -> str:
+async def update_workout(workoutId: WorkoutID, payload: UpdateWorkoutRequest) -> str:
     """Update a workout by ID.
 
     Args:
@@ -119,12 +154,20 @@ async def update_workout(workoutId: str, payload: dict[str, Any]) -> str:
             "so it is available to the server process."
         )
     url = f"{API_BASE}/workouts/{workoutId}"
-    result = await make_hevy_request(url, method="PUT", payload=payload)
+    # Convert Pydantic model to dict for API request
+    payload_dict = payload.model_dump()
+    result = await make_hevy_request(url, method="PUT", payload=payload_dict)
     
     if isinstance(result, tuple):
         return result[1]  # Return error message
     
-    return json.dumps(result, indent=2)
+    # Validate response with Pydantic model
+    try:
+        validated_response = Workout(**result)
+        return json.dumps(validated_response.model_dump(), indent=2)
+    except Exception as e:
+        # If validation fails, return raw response with warning
+        return f"Warning: Response validation failed ({e}). Raw response:\n{json.dumps(result, indent=2)}"
 
 
 @mcp.tool()
@@ -141,11 +184,17 @@ async def get_workouts_count() -> str:
     if isinstance(result, tuple):
         return result[1]  # Return error message
     
-    return json.dumps(result, indent=2)
+    # Validate response with Pydantic model
+    try:
+        validated_response = WorkoutCountResponse(**result)
+        return json.dumps(validated_response.model_dump(), indent=2)
+    except Exception as e:
+        # If validation fails, return raw response with warning
+        return f"Warning: Response validation failed ({e}). Raw response:\n{json.dumps(result, indent=2)}"
 
 
 @mcp.tool()
-async def get_workout_events(page: int = 1, pageSize: int = 10, since: str | None = None) -> str:
+async def get_workout_events(page: PageNumber = 1, pageSize: PageSize = 10, since: Optional[ISODateTime] = None) -> str:
     """Get a paged list of workout events since a given date.
 
     Args:
@@ -169,6 +218,12 @@ async def get_workout_events(page: int = 1, pageSize: int = 10, since: str | Non
     if isinstance(result, tuple):
         return result[1]  # Return error message
     
-    return json.dumps(result, indent=2)
+    # Validate response with Pydantic model
+    try:
+        validated_response = WorkoutEventsResponse(**result)
+        return json.dumps(validated_response.model_dump(), indent=2)
+    except Exception as e:
+        # If validation fails, return raw response with warning
+        return f"Warning: Response validation failed ({e}). Raw response:\n{json.dumps(result, indent=2)}"
 
 
