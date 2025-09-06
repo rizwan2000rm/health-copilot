@@ -6,14 +6,16 @@ prompt templates, and response generation with document retrieval.
 """
 
 import os
+import asyncio
 from typing import Optional, Dict, Any
-from langchain_ollama import OllamaLLM
+from langchain_ollama import ChatOllama
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.vectorstores import VectorStoreRetriever
 from document_processor import DocumentProcessor
 from cache import ResponseCache
+from mcp_integration import MCPIntegration, MCPWorkoutManager
 
 
 class FitnessCoach:
@@ -28,18 +30,25 @@ class FitnessCoach:
             cache_file: Path to the cache file for response caching
         """
         self.model_name = model_name
-        self.model = OllamaLLM(model=model_name)
+        self.model = ChatOllama(model=model_name, temperature=0.7)
         self.cache = ResponseCache(cache_file)
         self.doc_processor = DocumentProcessor()
         self.retriever: Optional[VectorStoreRetriever] = None
         self.chain = None
+        self.agent = None
+        
+        # Initialize MCP integration
+        self.mcp = MCPIntegration()
+        self.workout_manager = MCPWorkoutManager(self.mcp)
         
         # Initialize the prompt template
         self._setup_prompt_template()
     
+    
     def _setup_prompt_template(self) -> None:
         """Set up the prompt template for the AI coach."""
-        self.template = """You are a minimalist fitness coach. Focus on evidence-based, time-efficient workouts (45-60 min, 2-3x/week).
+        self.template = """You are a minimalist fitness coach with access to workout tracking tools. 
+Focus on evidence-based, time-efficient workouts (45-60 min, 2-3x/week).
 
 PRINCIPLES: Compound movements, progressive overload, safety-first, sustainability.
 
@@ -47,7 +56,15 @@ RESEARCH CONTEXT: {context}
 
 USER REQUEST: {input}
 
-Provide a concise, practical workout solution with form cues and modifications. Use research context when relevant."""
+You have access to workout tracking tools. When appropriate, you can:
+- Retrieve user's workout history
+- Create new workouts
+- Update existing workouts
+- Get workout statistics
+
+Provide a concise, practical workout solution with form cues and modifications. 
+Use research context when relevant. If the user asks about their workout history 
+or wants to track workouts, use the available tools."""
         
         self.prompt = ChatPromptTemplate.from_template(self.template)
     
@@ -97,9 +114,15 @@ Provide a concise, practical workout solution with form cues and modifications. 
             print(f"⚠️ Could not get chunk count: {e}")
             print("✅ Knowledge base loaded (chunk count unavailable)")
         
-        # Set up the processing chain
-        self._setup_chain()
         return True
+    
+    async def setup_agent(self) -> None:
+        """Set up the LangGraph agent with MCP tools."""
+        # Load MCP tools
+        await self.mcp.load_tools()
+        
+        # Create the agent with tools
+        self.agent = self.mcp.create_agent(self.model)
     
     def _setup_chain(self) -> None:
         """Set up the processing chain based on whether retrieval is available."""
@@ -118,7 +141,7 @@ Provide a concise, practical workout solution with form cues and modifications. 
             # Chain without retrieval
             self.chain = self.prompt | self.model | StrOutputParser()
     
-    def get_response(self, user_input: str) -> str:
+    async def get_response(self, user_input: str) -> str:
         """
         Get a response from the AI coach for the given input.
         
@@ -134,15 +157,51 @@ Provide a concise, practical workout solution with form cues and modifications. 
             return cached_response
         
         # Get response from the model
-        if self.retriever:
-            response = self.chain.invoke(user_input)
+        if self.agent:
+            # Use agent with tools
+            response = await self.agent.ainvoke({"messages": [("user", user_input)]})
+            # Extract the response from the agent output
+            if isinstance(response, dict) and "messages" in response:
+                messages = response["messages"]
+                if messages and hasattr(messages[-1], 'content'):
+                    response_text = messages[-1].content
+                else:
+                    response_text = str(response)
+            else:
+                response_text = str(response)
         else:
-            response = self.chain.invoke({"input": user_input})
+            # Fallback to basic chain without tools
+            if self.retriever:
+                def format_docs(docs):
+                    return "\n\n".join(doc.page_content for doc in docs)
+                
+                chain = (
+                    {"context": self.retriever | format_docs, "input": RunnablePassthrough()}
+                    | self.prompt
+                    | self.model
+                    | StrOutputParser()
+                )
+                response_text = chain.invoke(user_input)
+            else:
+                chain = self.prompt | self.model | StrOutputParser()
+                response_text = chain.invoke({"input": user_input})
         
         # Cache the response for future use
-        self.cache.set(user_input, response)
+        self.cache.set(user_input, response_text)
         
-        return response
+        return response_text
+    
+    def get_response_sync(self, user_input: str) -> str:
+        """
+        Synchronous wrapper for get_response (for backward compatibility).
+        
+        Args:
+            user_input: The user's question or request
+            
+        Returns:
+            The AI coach's response
+        """
+        return asyncio.run(self.get_response(user_input))
     
     def get_cached_response(self, user_input: str) -> Optional[str]:
         """
@@ -167,9 +226,12 @@ Provide a concise, practical workout solution with form cues and modifications. 
         Returns:
             Dictionary containing cache statistics
         """
+        mcp_stats = self.mcp.get_stats()
         return {
             "cache_size": self.cache.size(),
             "cache_file": self.cache.cache_file,
             "model_name": self.model_name,
-            "has_retriever": self.retriever is not None
+            "has_retriever": self.retriever is not None,
+            **mcp_stats
         }
+    
