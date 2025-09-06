@@ -41,6 +41,10 @@ class FitnessCoach:
         self.mcp = MCPIntegration()
         self.workout_manager = MCPWorkoutManager(self.mcp)
         
+        # Cache for exercise templates to prevent infinite loops
+        self._exercise_templates_cache = None
+        self._exercise_template_mapping_cache = None
+        
         # Initialize the prompt template
         self._setup_prompt_template()
     
@@ -231,6 +235,12 @@ or wants to track workouts, use the available tools."""
         """Clear the response cache."""
         self.cache.clear()
     
+    def clear_exercise_caches(self) -> None:
+        """Clear exercise template caches to force refresh."""
+        self._exercise_templates_cache = None
+        self._exercise_template_mapping_cache = None
+        print("🔄 Exercise template caches cleared")
+    
     def get_cache_stats(self) -> Dict[str, Any]:
         """
         Get cache statistics.
@@ -244,6 +254,8 @@ or wants to track workouts, use the available tools."""
             "cache_file": self.cache.cache_file,
             "model_name": self.model_name,
             "has_retriever": self.retriever is not None,
+            "exercise_templates_cached": self._exercise_templates_cache is not None,
+            "exercise_mapping_cached": self._exercise_template_mapping_cache is not None,
             **mcp_stats
         }
     
@@ -440,7 +452,12 @@ or wants to track workouts, use the available tools."""
         return plan
     
     async def _get_exercise_templates(self) -> str:
-        """Get exercise templates from Hevy API."""
+        """Get exercise templates from Hevy API with caching to prevent infinite loops."""
+        # Return cached result if available
+        if self._exercise_templates_cache is not None:
+            print("💾 Using cached exercise templates")
+            return self._exercise_templates_cache
+        
         try:
             # Use the MCP integration method
             if hasattr(self.mcp, 'mcp_tools') and self.mcp.mcp_tools:
@@ -452,21 +469,38 @@ or wants to track workouts, use the available tools."""
                         break
                 
                 if templates_tool:
+                    print("🔍 Fetching exercise templates from API...")
                     result = await templates_tool.ainvoke({"page": 1, "pageSize": 50})
+                    # Cache the result
+                    self._exercise_templates_cache = result
+                    print("✅ Exercise templates cached")
                     return result
                 else:
-                    return "Exercise templates tool not available"
+                    error_msg = "Exercise templates tool not available"
+                    self._exercise_templates_cache = error_msg
+                    return error_msg
             else:
-                return "MCP tools not loaded"
+                error_msg = "MCP tools not loaded"
+                self._exercise_templates_cache = error_msg
+                return error_msg
         except Exception as e:
-            return f"Error retrieving exercise templates: {e}"
+            error_msg = f"Error retrieving exercise templates: {e}"
+            self._exercise_templates_cache = error_msg
+            return error_msg
     
     async def _get_exercise_template_mapping(self) -> Dict[str, str]:
-        """Get a mapping of exercise names to template IDs."""
+        """Get a mapping of exercise names to template IDs with caching."""
+        # Return cached mapping if available
+        if self._exercise_template_mapping_cache is not None:
+            print("💾 Using cached exercise template mapping")
+            return self._exercise_template_mapping_cache
+        
         try:
             templates_result = await self._get_exercise_templates()
             if "Error" in templates_result or "not available" in templates_result:
-                return self._get_fallback_exercise_mapping()
+                fallback_mapping = self._get_fallback_exercise_mapping()
+                self._exercise_template_mapping_cache = fallback_mapping
+                return fallback_mapping
             
             import json
             templates_data = json.loads(templates_result)
@@ -509,10 +543,15 @@ or wants to track workouts, use the available tools."""
                     mapping["sit-up"] = template_id
                     mapping["situp"] = template_id
             
+            # Cache the mapping
+            self._exercise_template_mapping_cache = mapping
+            print("✅ Exercise template mapping cached")
             return mapping
         except Exception as e:
             print(f"Error creating exercise mapping: {e}")
-            return self._get_fallback_exercise_mapping()
+            fallback_mapping = self._get_fallback_exercise_mapping()
+            self._exercise_template_mapping_cache = fallback_mapping
+            return fallback_mapping
     
     def _get_fallback_exercise_mapping(self) -> Dict[str, str]:
         """Fallback exercise mapping when API is not available."""
@@ -584,26 +623,38 @@ or wants to track workouts, use the available tools."""
         """Create the routines in the user's Hevy app."""
         print("\n🏋️‍♂️ CREATING ROUTINES IN HEVY...")
         
-        # First, check/create the weekly folder
-        await self._ensure_weekly_folder_exists()
+        # First, check/create the weekly folder and get its ID
+        folder_id = await self._ensure_weekly_folder_exists()
         
-        # Parse the plan and create individual routines
-        routines = await self._parse_plan_into_routines(plan)
+        if folder_id is None:
+            print("⚠️ Could not create or find weekly folder, creating routines without folder assignment")
+        
+        # Parse the plan and create individual routines with folder assignment
+        routines = await self._parse_plan_into_routines(plan, folder_id)
         
         for i, routine in enumerate(routines, 1):
             print(f"📝 Creating Routine {i}: {routine['title']}")
+            if folder_id:
+                print(f"📁 Assigning to folder ID: {folder_id}")
+            else:
+                print("⚠️ No folder ID available - routine will be created without folder assignment")
+            
             try:
                 # Format routine for Hevy API
                 routine_payload = {"routine": routine}
                 result = await self.mcp.create_routine(routine_payload)
                 print(f"✅ Created: {routine['title']}")
+                
+                # Log the routine payload for debugging
+                print(f"🔍 Routine payload: {routine_payload}")
             except Exception as e:
                 print(f"❌ Failed to create {routine['title']}: {e}")
+                print(f"🔍 Failed routine payload: {routine_payload}")
         
         print("\n🎉 All routines created successfully!")
     
-    async def _ensure_weekly_folder_exists(self) -> None:
-        """Ensure the weekly folder exists in Hevy."""
+    async def _ensure_weekly_folder_exists(self) -> Optional[int]:
+        """Ensure the weekly folder exists in Hevy and return its ID."""
         # Get current week number (simplified - you might want to use proper date logic)
         import datetime
         week_num = datetime.datetime.now().isocalendar()[1]
@@ -612,14 +663,28 @@ or wants to track workouts, use the available tools."""
         # Check if folder exists
         try:
             folders_result = await self._get_routine_folders()
-            if folder_name not in folders_result:
+            
+            # Parse the folders result to find existing folder
+            folder_id = await self._find_folder_id_by_name(folders_result, folder_name)
+            
+            if folder_id is None:
                 print(f"📁 Creating folder: {folder_name}")
                 folder_payload = {"routine_folder": {"title": folder_name}}
-                await self.mcp.create_routine_folder(folder_payload)
+                result = await self.mcp.create_routine_folder(folder_payload)
+                
+                # Try to extract folder ID from creation result
+                folder_id = await self._extract_folder_id_from_result(result)
+                if folder_id:
+                    print(f"✅ Created folder '{folder_name}' with ID: {folder_id}")
+                else:
+                    print(f"⚠️ Created folder '{folder_name}' but couldn't get ID")
             else:
-                print(f"📁 Folder '{folder_name}' already exists")
+                print(f"📁 Folder '{folder_name}' already exists with ID: {folder_id}")
+            
+            return folder_id
         except Exception as e:
             print(f"⚠️ Could not check/create folder: {e}")
+            return None
     
     async def _get_routine_folders(self) -> str:
         """Get routine folders from Hevy API."""
@@ -641,7 +706,39 @@ or wants to track workouts, use the available tools."""
         except Exception as e:
             return f"Error retrieving routine folders: {e}"
     
-    async def _parse_plan_into_routines(self, plan: str) -> List[Dict[str, Any]]:
+    async def _find_folder_id_by_name(self, folders_result: str, folder_name: str) -> Optional[int]:
+        """Find folder ID by name in the folders result."""
+        try:
+            import json
+            folders_data = json.loads(folders_result)
+            folders = folders_data.get("routine_folders", [])
+            
+            for folder in folders:
+                if folder.get("title") == folder_name:
+                    return folder.get("id")
+            return None
+        except Exception as e:
+            print(f"⚠️ Error parsing folders result: {e}")
+            return None
+    
+    async def _extract_folder_id_from_result(self, result: str) -> Optional[int]:
+        """Extract folder ID from creation result."""
+        try:
+            import json
+            result_data = json.loads(result)
+            # The result might be in different formats, try common patterns
+            if "routine_folder" in result_data:
+                return result_data["routine_folder"].get("id")
+            elif "id" in result_data:
+                return result_data["id"]
+            elif "folder" in result_data:
+                return result_data["folder"].get("id")
+            return None
+        except Exception as e:
+            print(f"⚠️ Error extracting folder ID from result: {e}")
+            return None
+    
+    async def _parse_plan_into_routines(self, plan: str, folder_id: Optional[int] = None) -> List[Dict[str, Any]]:
         """Parse the plan text into individual routine objects with proper exercises."""
         routines = []
         lines = plan.split('\n')
@@ -659,7 +756,7 @@ or wants to track workouts, use the available tools."""
                     routines.append(current_routine)
                 current_routine = {
                     "title": line.replace('*', '').strip(),
-                    "folder_id": None,
+                    "folder_id": folder_id,  # Use the provided folder_id
                     "notes": "",
                     "exercises": []
                 }
@@ -678,7 +775,7 @@ or wants to track workouts, use the available tools."""
         if not routines:
             routines.append({
                 "title": "Weekly Plan",
-                "folder_id": None,
+                "folder_id": folder_id,  # Use the provided folder_id
                 "notes": plan,
                 "exercises": [self._get_default_exercise()]
             })
