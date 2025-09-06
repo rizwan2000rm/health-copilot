@@ -40,7 +40,7 @@ class AsyncConsoleUI(ConsoleUI):
         # Set up agent with MCP tools
         await self.coach.setup_agent()
         
-        print("\n💡 Features: AI coaching, workout tracking, response caching")
+        print("\n💡 Features: AI coaching, workout tracking")
         
         if self.coach.mcp.has_tools():
             tool_count = len(self.coach.mcp.get_tool_names())
@@ -61,9 +61,6 @@ class AsyncConsoleUI(ConsoleUI):
                     self._show_help()
                 elif user_input.lower() == 'stats':
                     self._show_stats()
-                elif user_input.lower() == 'clear':
-                    self.coach.clear_cache()
-                    print("✅ Cache cleared")
                 elif user_input.lower() == 'workouts':
                     await self._show_workout_history()
                 elif user_input.lower() == 'summary':
@@ -90,7 +87,6 @@ class AsyncConsoleUI(ConsoleUI):
         print("\n📋 Available Commands:")
         print("  help           - Show this help message")
         print("  stats          - Show system statistics")
-        print("  clear          - Clear response cache")
         print("  workouts       - Show workout history")
         print("  summary        - Show workout summary")
         print("  create workout - Create a new workout")
@@ -100,10 +96,9 @@ class AsyncConsoleUI(ConsoleUI):
     
     def _show_stats(self):
         """Show system statistics."""
-        stats = self.coach.get_cache_stats()
+        stats = self.coach.get_stats()
         print(f"\n📊 System Statistics:")
         print(f"  Model: {stats['model_name']}")
-        print(f"  Cache size: {stats['cache_size']} responses")
         print(f"  Knowledge base: {'✅' if stats['has_retriever'] else '❌'}")
         print(f"  MCP tools: {'✅' if stats['tools_loaded'] > 0 else '❌'}")
         print(f"  MCP available: {'✅' if stats['mcp_available'] else '❌'}")

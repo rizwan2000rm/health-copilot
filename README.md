@@ -14,7 +14,6 @@ This project consists of two main components:
 - 🤖 AI-powered fitness coaching using Ollama (llama3.2:3b)
 - 📚 Knowledge base with fitness research papers and guides
 - 🏋️‍♂️ Workout tracking and management via Hevy API
-- 💾 Response caching for improved performance
 - 🔧 MCP tool integration for enhanced functionality
 - 📊 Workout history and analytics
 - 📅 Weekly workout planning
@@ -129,7 +128,6 @@ Once the application is running, you can:
 
 - `help` - Show available commands
 - `stats` - Display system statistics
-- `clear` - Clear response cache
 - `workouts` - Show workout history (requires Hevy API)
 - `summary` - Show workout summary (requires Hevy API)
 - `create workout` - Create a new workout (requires Hevy API)

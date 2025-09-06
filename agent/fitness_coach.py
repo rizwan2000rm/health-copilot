@@ -14,24 +14,21 @@ from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.vectorstores import VectorStoreRetriever
 from document_processor import DocumentProcessor
-from cache import ResponseCache
 from mcp_integration import MCPIntegration, MCPWorkoutManager
 
 
 class FitnessCoach:
     """AI Fitness Coach that provides workout advice and guidance."""
     
-    def __init__(self, model_name: str = "llama3.2:3b", cache_file: str = "response_cache.json"):
+    def __init__(self, model_name: str = "llama3.2:3b"):
         """
         Initialize the AI Fitness Coach.
         
         Args:
             model_name: Name of the Ollama model to use
-            cache_file: Path to the cache file for response caching
         """
         self.model_name = model_name
         self.model = ChatOllama(model=model_name, temperature=0.7)
-        self.cache = ResponseCache(cache_file)
         self.doc_processor = DocumentProcessor()
         self.retriever: Optional[VectorStoreRetriever] = None
         self.chain = None
@@ -41,9 +38,6 @@ class FitnessCoach:
         self.mcp = MCPIntegration()
         self.workout_manager = MCPWorkoutManager(self.mcp)
         
-        # Cache for exercise templates to prevent infinite loops
-        self._exercise_templates_cache = None
-        self._exercise_template_mapping_cache = None
         
         # Initialize the prompt template
         self._setup_prompt_template()
@@ -155,11 +149,6 @@ or wants to track workouts, use the available tools."""
         Returns:
             The AI coach's response
         """
-        # Check cache first for faster response
-        cached_response = self.cache.get(user_input)
-        if cached_response:
-            print("💾 Using cached response")
-            return cached_response
         
         # Get response from the model
         referenced_files = []
@@ -202,8 +191,6 @@ or wants to track workouts, use the available tools."""
                 chain = self.prompt | self.model | StrOutputParser()
                 response_text = chain.invoke({"input": user_input})
         
-        # Cache the response for future use
-        self.cache.set(user_input, response_text)
         
         return response_text
     
@@ -219,43 +206,20 @@ or wants to track workouts, use the available tools."""
         """
         return asyncio.run(self.get_response(user_input))
     
-    def get_cached_response(self, user_input: str) -> Optional[str]:
-        """
-        Get a cached response if available.
-        
-        Args:
-            user_input: The user's question or request
-            
-        Returns:
-            Cached response if available, None otherwise
-        """
-        return self.cache.get(user_input)
     
-    def clear_cache(self) -> None:
-        """Clear the response cache."""
-        self.cache.clear()
     
-    def clear_exercise_caches(self) -> None:
-        """Clear exercise template caches to force refresh."""
-        self._exercise_templates_cache = None
-        self._exercise_template_mapping_cache = None
-        print("🔄 Exercise template caches cleared")
     
-    def get_cache_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> Dict[str, Any]:
         """
-        Get cache statistics.
+        Get system statistics.
         
         Returns:
-            Dictionary containing cache statistics
+            Dictionary containing system statistics
         """
         mcp_stats = self.mcp.get_stats()
         return {
-            "cache_size": self.cache.size(),
-            "cache_file": self.cache.cache_file,
             "model_name": self.model_name,
             "has_retriever": self.retriever is not None,
-            "exercise_templates_cached": self._exercise_templates_cache is not None,
-            "exercise_mapping_cached": self._exercise_template_mapping_cache is not None,
             **mcp_stats
         }
     
@@ -452,12 +416,7 @@ or wants to track workouts, use the available tools."""
         return plan
     
     async def _get_exercise_templates(self) -> str:
-        """Get exercise templates from Hevy API with caching to prevent infinite loops."""
-        # Return cached result if available
-        if self._exercise_templates_cache is not None:
-            print("💾 Using cached exercise templates")
-            return self._exercise_templates_cache
-        
+        """Get exercise templates from Hevy API."""
         try:
             # Use the MCP integration method
             if hasattr(self.mcp, 'mcp_tools') and self.mcp.mcp_tools:
@@ -471,35 +430,24 @@ or wants to track workouts, use the available tools."""
                 if templates_tool:
                     print("🔍 Fetching exercise templates from API...")
                     result = await templates_tool.ainvoke({"page": 1, "pageSize": 50})
-                    # Cache the result
-                    self._exercise_templates_cache = result
-                    print("✅ Exercise templates cached")
+                    print("✅ Exercise templates retrieved")
                     return result
                 else:
                     error_msg = "Exercise templates tool not available"
-                    self._exercise_templates_cache = error_msg
                     return error_msg
             else:
                 error_msg = "MCP tools not loaded"
-                self._exercise_templates_cache = error_msg
                 return error_msg
         except Exception as e:
             error_msg = f"Error retrieving exercise templates: {e}"
-            self._exercise_templates_cache = error_msg
             return error_msg
     
     async def _get_exercise_template_mapping(self) -> Dict[str, str]:
-        """Get a mapping of exercise names to template IDs with caching."""
-        # Return cached mapping if available
-        if self._exercise_template_mapping_cache is not None:
-            print("💾 Using cached exercise template mapping")
-            return self._exercise_template_mapping_cache
-        
+        """Get a mapping of exercise names to template IDs."""
         try:
             templates_result = await self._get_exercise_templates()
             if "Error" in templates_result or "not available" in templates_result:
                 fallback_mapping = self._get_fallback_exercise_mapping()
-                self._exercise_template_mapping_cache = fallback_mapping
                 return fallback_mapping
             
             import json
@@ -543,14 +491,11 @@ or wants to track workouts, use the available tools."""
                     mapping["sit-up"] = template_id
                     mapping["situp"] = template_id
             
-            # Cache the mapping
-            self._exercise_template_mapping_cache = mapping
-            print("✅ Exercise template mapping cached")
+            print("✅ Exercise template mapping created")
             return mapping
         except Exception as e:
             print(f"Error creating exercise mapping: {e}")
             fallback_mapping = self._get_fallback_exercise_mapping()
-            self._exercise_template_mapping_cache = fallback_mapping
             return fallback_mapping
     
     def _get_fallback_exercise_mapping(self) -> Dict[str, str]:
