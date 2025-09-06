@@ -1,7 +1,7 @@
 """
 AI Fitness Coach module.
 
-Simplified core AI coaching logic with MCP tools, knowledge base, and prompt execution.
+Core AI coaching logic with MCP tools and knowledge base integration.
 """
 
 import asyncio
@@ -15,7 +15,7 @@ from mcp_integration import MCPIntegration
 
 
 class FitnessCoach:
-    """AI Fitness Coach with MCP tools, knowledge base, and prompt execution."""
+    """AI Fitness Coach with MCP tools and knowledge base integration."""
     
     def __init__(self, model_name: str = "llama3.2:3b"):
         """Initialize the AI Fitness Coach."""
@@ -37,6 +37,7 @@ RESEARCH CONTEXT: {context}
 
 USER REQUEST: {input}
 
+Provide helpful, evidence-based fitness advice and workout recommendations.
 """
         self.prompt = ChatPromptTemplate.from_template(self.template)
     
@@ -44,39 +45,58 @@ USER REQUEST: {input}
         """Set up the knowledge base from context directory."""
         return self.knowledge_base.setup_knowledge_base(context_dir)
     
-    async def setup_agent(self) -> None:
+    async def setup_agent(self) -> bool:
         """Set up the LangGraph agent with MCP tools."""
-        await self.mcp.load_tools()
-        self.agent = self.mcp.create_agent(self.model)
+        try:
+            # Test MCP connection first
+            connection_ok = await self.mcp.test_connection()
+            if not connection_ok:
+                print("⚠️ MCP connection failed, agent will use knowledge base only")
+                return False
+            
+            # Load tools and create agent
+            tools = await self.mcp.load_tools()
+            if tools:
+                self.agent = self.mcp.create_agent(self.model)
+                if self.agent:
+                    print("✅ Agent successfully created with MCP tools")
+                    return True
+            
+            print("⚠️ Failed to create agent with MCP tools")
+            return False
+        except Exception as e:
+            print(f"⚠️ Error setting up agent: {e}")
+            return False
     
     async def get_response(self, user_input: str) -> str:
         """Get a response from the AI coach."""
         if self.agent:
-            # Use agent with MCP tools
-            response = await self.agent.ainvoke({"messages": [("user", user_input)]})
-            if isinstance(response, dict) and "messages" in response:
-                messages = response["messages"]
-                if messages and hasattr(messages[-1], 'content'):
-                    return messages[-1].content
-            return str(response)
+            try:
+                # Use agent with MCP tools
+                response = await self.agent.ainvoke({"messages": [("user", user_input)]})
+                if isinstance(response, dict) and "messages" in response:
+                    messages = response["messages"]
+                    if messages and hasattr(messages[-1], 'content'):
+                        return messages[-1].content
+                return str(response)
+            except Exception as e:
+                print(f"⚠️ Agent error: {e}, falling back to knowledge base")
+                # Fall through to fallback
+        
+        # Fallback to basic chain with knowledge base
+        retriever = self.knowledge_base.get_retriever()
+        if retriever:
+            chain = (
+                {"context": retriever | self.knowledge_base.format_docs, "input": RunnablePassthrough()}
+                | self.prompt
+                | self.model
+                | StrOutputParser()
+            )
+            return chain.invoke(user_input)
         else:
-            # Fallback to basic chain with knowledge base
-            retriever = self.knowledge_base.get_retriever()
-            if retriever:
-                chain = (
-                    {"context": retriever | self.knowledge_base.format_docs, "input": RunnablePassthrough()}
-                    | self.prompt
-                    | self.model
-                    | StrOutputParser()
-                )
-                return chain.invoke(user_input)
-            else:
-                chain = self.prompt | self.model | StrOutputParser()
-                return chain.invoke({"input": user_input})
+            chain = self.prompt | self.model | StrOutputParser()
+            return chain.invoke({"input": user_input})
     
-    def get_response_sync(self, user_input: str) -> str:
-        """Synchronous wrapper for get_response."""
-        return asyncio.run(self.get_response(user_input))
     
     def get_stats(self) -> Dict[str, Any]:
         """Get system statistics."""
