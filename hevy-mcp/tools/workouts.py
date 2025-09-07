@@ -23,14 +23,14 @@ async def get_workouts(page: PageNumber = 1, pageSize: PageSize = 5) -> str:
 
     Args:
         page: Page number (>= 1). Default: 1.
-        pageSize: Items per page (1..10). Default: 5.
+        pageSize: Items per page (1..100). Default: 5.
 
     Returns:
         JSON string of raw API response (no response validation).
 
     Validation:
         - Requires `HEVY_API_KEY`.
-        - `page >= 1`, `1 <= pageSize <= 10`.
+        - `page >= 1`, `1 <= pageSize <= 100`.
 
     Example:
         get_workouts()  # first 5 workouts
@@ -93,7 +93,7 @@ async def get_workout(workoutId: WorkoutID) -> str:
         - `workoutId` must resemble a UUID.
 
     Example:
-        get_workout("c1f1e7b6-7a1a-4f8c-9baf-2a6c6b6b9a22")
+        get_workout("b459cba5-cd6d-463c-abd6-54f8eafcadcb")
 
     Docs: https://api.hevyapp.com/docs/
     """
@@ -123,7 +123,7 @@ async def create_workout(payload: CreateWorkoutRequest) -> str:
 
     Args:
         payload: A `CreateWorkoutRequest` with top-level `workout` object.
-            - Required: `workout.title` or `workout.name` (string)
+            - Required: `workout.title` (string)
             - Optional: `workout.description`, `workout.start_time`, `workout.end_time`, 
               `workout.is_private`, `workout.exercises` (with sets)
 
@@ -132,10 +132,33 @@ async def create_workout(payload: CreateWorkoutRequest) -> str:
 
     Validation:
         - Requires `HEVY_API_KEY`.
-        - `workout` object required; `workout.title` or `workout.name` required.
+        - `workout` object required; `workout.title` required.
 
     Example:
-        {"workout": {"title": "Morning Push", "description": "Upper body workout"}}
+        {
+            "workout": {
+                "title": "Friday Leg Day 🔥",
+                "description": "Medium intensity leg day focusing on quads.",
+                "start_time": "2024-08-14T12:00:00Z",
+                "end_time": "2024-08-14T12:30:00Z",
+                "is_private": false,
+                "exercises": [
+                    {
+                        "exercise_template_id": "D04AC939",
+                        "superset_id": null,
+                        "notes": "Felt good today. Form was on point.",
+                        "sets": [
+                            {
+                                "type": "normal",
+                                "weight_kg": 100,
+                                "reps": 10,
+                                "rpe": 8.5
+                            }
+                        ]
+                    }
+                ]
+            }
+        }
 
     Docs: https://api.hevyapp.com/docs/
     """
@@ -178,7 +201,27 @@ async def update_workout(workoutId: WorkoutID, payload: UpdateWorkoutRequest) ->
         - `workout` object required; include only fields you want to change.
 
     Example:
-        {"workout": {"name": "Upper Body - Week 2", "notes": "Felt strong"}}
+        {
+            "workout": {
+                "title": "Friday Leg Day 🔥",
+                "description": "Medium intensity leg day focusing on quads.",
+                "exercises": [
+                    {
+                        "exercise_template_id": "D04AC939",
+                        "superset_id": null,
+                        "notes": "Felt good today. Form was on point.",
+                        "sets": [
+                            {
+                                "type": "normal",
+                                "weight_kg": 100,
+                                "reps": 10,
+                                "rpe": 8.5
+                            }
+                        ]
+                    }
+                ]
+            }
+        }
 
     Docs: https://api.hevyapp.com/docs/
     """
@@ -253,7 +296,7 @@ async def get_workout_events(page: PageNumber = 1, pageSize: PageSize = 10, sinc
         - `page >= 1`, `1 <= pageSize <= 50`.
 
     Example:
-        get_workout_events(since="2025-01-01T00:00:00Z")
+        get_workout_events(since="2024-01-01T00:00:00Z")
 
     Docs: https://api.hevyapp.com/docs/
     """

@@ -57,7 +57,7 @@ async def get_exercise_template(exerciseTemplateId: ExerciseTemplateID) -> str:
     """Get a single exercise template by ID.
 
     Args:
-        exerciseTemplateId: Exercise template ID (e.g., "05293BCA").
+        exerciseTemplateId: Exercise template ID (e.g., "b459cba5-cd6d-463c-abd6-54f8eafcadcb").
 
     Returns:
         JSON string of the template details.
@@ -67,7 +67,7 @@ async def get_exercise_template(exerciseTemplateId: ExerciseTemplateID) -> str:
         - `exerciseTemplateId` required.
 
     Example:
-        get_exercise_template("05293BCA")
+        get_exercise_template("b459cba5-cd6d-463c-abd6-54f8eafcadcb")
 
     Docs: https://api.hevyapp.com/docs/
     """
@@ -101,7 +101,7 @@ async def get_exercise_history(
     """Get exercise history for a template.
 
     Args:
-        exerciseTemplateId: Exercise template ID (e.g., "05293BCA").
+        exerciseTemplateId: Exercise template ID (e.g., "b459cba5-cd6d-463c-abd6-54f8eafcadcb").
         start_date: Optional ISO8601 start.
         end_date: Optional ISO8601 end.
 
@@ -114,8 +114,8 @@ async def get_exercise_history(
         - If both dates provided, `start_date <= end_date`.
 
     Examples:
-        get_exercise_history("05293BCA")
-        get_exercise_history("05293BCA", start_date="2024-11-01T00:00:00Z")
+        get_exercise_history("b459cba5-cd6d-463c-abd6-54f8eafcadcb")
+        get_exercise_history("b459cba5-cd6d-463c-abd6-54f8eafcadcb", start_date="2024-11-01T00:00:00Z")
 
     Docs: https://api.hevyapp.com/docs/
     """

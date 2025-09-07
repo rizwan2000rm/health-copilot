@@ -24,14 +24,14 @@ async def get_routines(page: PageNumber = 1, pageSize: PageSize = 5) -> str:
 
     Args:
         page: Page number (>= 1). Default: 1.
-        pageSize: Items per page (1..10). Default: 5.
+        pageSize: Items per page (1..100). Default: 5.
 
     Returns:
         JSON string of raw API response (no response validation).
 
     Validation:
         - Requires `HEVY_API_KEY`.
-        - `page >= 1`, `1 <= pageSize <= 10`.
+        - `page >= 1`, `1 <= pageSize <= 100`.
 
     Docs: https://api.hevyapp.com/docs/
     """
@@ -74,7 +74,29 @@ async def create_routine(payload: CreateRoutineRequest) -> str:
         - `routine` object required; `routine.title` required.
 
     Example:
-        {"routine": {"title": "Push Day"}}
+        {
+            "routine": {
+                "title": "April Leg Day 🔥",
+                "folder_id": null,
+                "notes": "Focus on form over weight. Remember to stretch.",
+                "exercises": [
+                    {
+                        "exercise_template_id": "D04AC939",
+                        "superset_id": null,
+                        "rest_seconds": 90,
+                        "notes": "Stay slow and controlled.",
+                        "sets": [
+                            {
+                                "type": "normal",
+                                "weight_kg": 100,
+                                "reps": 10,
+                                "rep_range": {"start": 8, "end": 12}
+                            }
+                        ]
+                    }
+                ]
+            }
+        }
 
     Docs: https://api.hevyapp.com/docs/
     """
@@ -116,7 +138,7 @@ async def get_routine(routineId: RoutineID) -> str:
         - `routineId` must resemble a UUID.
 
     Example:
-        get_routine("2b9a6f0f-9f3d-47a7-9c4a-9e2fb2f3f4aa")
+        get_routine("b459cba5-cd6d-463c-abd6-54f8eafcadcb")
 
     Docs: https://api.hevyapp.com/docs/
     """
@@ -158,7 +180,28 @@ async def update_routine(routineId: RoutineID, payload: UpdateRoutineRequest) ->
         - `routine` object required; include only fields you want to change.
 
     Example:
-        {"routine": {"title": "Push Day v2", "notes": "Strength focus"}}
+        {
+            "routine": {
+                "title": "April Leg Day 🔥",
+                "notes": "Focus on form over weight. Remember to stretch.",
+                "exercises": [
+                    {
+                        "exercise_template_id": "D04AC939",
+                        "superset_id": null,
+                        "rest_seconds": 90,
+                        "notes": "Stay slow and controlled.",
+                        "sets": [
+                            {
+                                "type": "normal",
+                                "weight_kg": 100,
+                                "reps": 10,
+                                "rep_range": {"start": 8, "end": 12}
+                            }
+                        ]
+                    }
+                ]
+            }
+        }
 
     Docs: https://api.hevyapp.com/docs/
     """
@@ -191,14 +234,14 @@ async def get_routine_folders(page: PageNumber = 1, pageSize: PageSize = 5) -> s
 
     Args:
         page: Page number (>= 1). Default: 1.
-        pageSize: Items per page (1..10). Default: 5.
+        pageSize: Items per page (1..100). Default: 5.
 
     Returns:
         JSON string of raw API response (no response validation).
 
     Validation:
         - Requires `HEVY_API_KEY`.
-        - `page >= 1`, `1 <= pageSize <= 10`.
+        - `page >= 1`, `1 <= pageSize <= 100`.
 
     Docs: https://api.hevyapp.com/docs/
     """
@@ -240,7 +283,7 @@ async def create_routine_folder(payload: CreateRoutineFolderRequest) -> str:
         - `routine_folder` object required; `title` required.
 
     Example:
-        {"routine_folder": {"title": "PPL"}}
+        {"routine_folder": {"title": "Push Pull 🏋️‍♂️"}}
 
     Docs: https://api.hevyapp.com/docs/
     """
@@ -282,7 +325,7 @@ async def get_routine_folder(folderId: FolderID) -> str:
         - `folderId` must be a positive integer.
 
     Example:
-        get_routine_folder(1)
+        get_routine_folder(42)
 
     Docs: https://api.hevyapp.com/docs/
     """
