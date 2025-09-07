@@ -1,7 +1,6 @@
 """
 Type definitions for Hevy API data structures using Pydantic models.
 These provide clear type hints and validation for the MCP server.
-Strictly adheres to the Hevy API documentation formats.
 """
 
 from typing import Any, Optional, List, Union, Literal, Dict
@@ -44,14 +43,12 @@ class ErrorResponse(BaseModel):
 # Exercise-related models
 class ExerciseTemplate(BaseModel):
     """Exercise template model - represents a predefined exercise."""
-    id: str = Field(..., description="Exercise template ID (e.g., '05293BCA')", min_length=1)
-    title: str = Field(..., description="Exercise title/name", min_length=1)
-    type: Optional[str] = Field(None, description="Exercise type (e.g., 'weight_reps')")
-    primary_muscle_group: Optional[str] = Field(None, description="Primary muscle group")
-    secondary_muscle_groups: Optional[List[str]] = Field(None, description="Secondary muscle groups")
-    is_custom: Optional[bool] = Field(None, description="Whether the exercise is custom")
-    created_at: Optional[datetime] = Field(None, description="Creation timestamp")
-    updated_at: Optional[datetime] = Field(None, description="Last update timestamp")
+    id: Optional[str] = Field(None, description="The exercise template ID")
+    title: Optional[str] = Field(None, description="The exercise title")
+    type: Optional[str] = Field(None, description="The exercise type")
+    primary_muscle_group: Optional[str] = Field(None, description="The primary muscle group of the exercise")
+    secondary_muscle_groups: Optional[List[str]] = Field(None, description="The secondary muscle groups of the exercise")
+    is_custom: Optional[bool] = Field(None, description="A boolean indicating whether the exercise is a custom exercise")
     
     @validator('secondary_muscle_groups', pre=True)
     def validate_secondary_muscle_groups(cls, v):
@@ -116,30 +113,31 @@ class RepRange(BaseModel):
 
 
 class ExerciseSet(BaseModel):
-    """Single exercise set."""
-    id: Optional[str] = Field(None, description="Set ID")
+    """Single exercise set for workouts."""
     index: Optional[int] = Field(None, description="Index indicating the order of the set")
-    type: Optional[str] = Field("normal", description="The type of the set", pattern=r"^(warmup|normal|failure|dropset)$")
-    weight_kg: Optional[float] = Field(None, ge=0, le=APIConstants.MAX_WEIGHT_KG, description="Weight used in kg")
-    reps: Optional[int] = Field(None, ge=0, le=APIConstants.MAX_REPS, description="Number of repetitions")
-    rep_range: Optional[RepRange] = Field(None, description="Range of reps for the set (Routine sets)")
-    distance_meters: Optional[float] = Field(None, ge=0, le=APIConstants.MAX_DISTANCE_METERS, description="Distance covered in meters")
-    duration_seconds: Optional[int] = Field(None, ge=0, le=APIConstants.MAX_DURATION_SECONDS, description="Duration in seconds")
-    rpe: Optional[float] = Field(None, ge=6, le=10, description="Rating of Perceived Exertion (allowed values: 6,7,7.5,8,8.5,9,9.5,10)")
-    custom_metric: Optional[float] = Field(None, description="Custom metric (used e.g. for steps/floors)")
-    notes: Optional[str] = Field(None, description="Set notes")
+    type: Optional[Literal['warmup', 'normal', 'failure', 'dropset']] = Field(None, description="The type of the set")
+    weight_kg: Optional[float] = Field(None, description="Weight lifted in kilograms")
+    reps: Optional[int] = Field(None, description="Number of reps logged for the set")
+    distance_meters: Optional[float] = Field(None, description="Number of meters logged for the set")
+    duration_seconds: Optional[int] = Field(None, description="Number of seconds logged for the set")
+    rpe: Optional[Literal[6, 7, 7.5, 8, 8.5, 9, 9.5, 10]] = Field(None, description="RPE (Relative perceived exertion) value logged for the set")
+    custom_metric: Optional[float] = Field(None, description="Custom metric logged for the set (Currently only used to log floors or steps for stair machine exercises)")
     
-    @validator('weight_kg', 'reps', 'duration_seconds', 'distance_meters', 'rpe', 'custom_metric', pre=True)
-    def validate_positive_values(cls, v):
-        if v is not None and v < 0:
-            raise ValueError('Value must be non-negative')
-        return v
-    
-    @validator('rpe', pre=True)
-    def validate_rpe(cls, v):
-        if v is not None and v not in [6, 7, 7.5, 8, 8.5, 9, 9.5, 10]:
-            raise ValueError('RPE must be one of: 6, 7, 7.5, 8, 8.5, 9, 9.5, 10')
-        return v
+    class Config:
+        extra = "forbid"
+
+
+class RoutineExerciseSet(BaseModel):
+    """Single exercise set for routines (includes rep_range)."""
+    index: Optional[int] = Field(None, description="Index indicating the order of the set")
+    type: Optional[Literal['warmup', 'normal', 'failure', 'dropset']] = Field(None, description="The type of the set")
+    weight_kg: Optional[float] = Field(None, description="Weight lifted in kilograms")
+    reps: Optional[int] = Field(None, description="Number of reps logged for the set")
+    rep_range: Optional[RepRange] = Field(None, description="Range of reps for the set, if applicable")
+    distance_meters: Optional[float] = Field(None, description="Number of meters logged for the set")
+    duration_seconds: Optional[int] = Field(None, description="Number of seconds logged for the set")
+    rpe: Optional[Literal[6, 7, 7.5, 8, 8.5, 9, 9.5, 10]] = Field(None, description="RPE (Relative perceived exertion) value logged for the set")
+    custom_metric: Optional[float] = Field(None, description="Custom metric logged for the set (Currently only used to log floors or steps for stair machine exercises)")
     
     class Config:
         extra = "forbid"
@@ -147,13 +145,12 @@ class ExerciseSet(BaseModel):
 
 class WorkoutExercise(BaseModel):
     """Exercise within a workout."""
-    id: Optional[str] = Field(None, description="Exercise ID")
     index: Optional[int] = Field(None, description="Index indicating the order of the exercise in the workout")
     title: Optional[str] = Field(None, description="Title of the exercise")
-    exercise_template_id: str = Field(..., description="Exercise template ID", min_length=1)
-    superset_id: Optional[int] = Field(None, description="The id of the superset that the exercise belongs to")
-    sets: List[ExerciseSet] = Field(default_factory=list, description="Exercise sets")
-    notes: Optional[str] = Field(None, description="Exercise notes")
+    notes: Optional[str] = Field(None, description="Notes on the exercise")
+    exercise_template_id: Optional[str] = Field(None, description="The id of the exercise template. This can be used to fetch the exercise template")
+    supersets_id: Optional[int] = Field(None, description="The id of the superset that the exercise belongs to. A value of null indicates the exercise is not part of a superset")
+    sets: Optional[List[ExerciseSet]] = Field(None, description="Exercise sets")
     
     class Config:
         extra = "forbid"
@@ -161,24 +158,14 @@ class WorkoutExercise(BaseModel):
 
 class Workout(BaseModel):
     """Workout model."""
-    id: Optional[str] = Field(None, description="Workout ID (UUID)")
-    title: Optional[str] = Field(None, description="Workout title")
-    description: Optional[str] = Field(None, description="Workout description")
-    start_time: Optional[datetime] = Field(None, description="ISO 8601 timestamp of when the workout was recorded to have started")
-    end_time: Optional[datetime] = Field(None, description="ISO 8601 timestamp of when the workout was recorded to have ended")
-    is_private: Optional[bool] = Field(None, description="Whether the workout is private")
-    exercises: List[WorkoutExercise] = Field(default_factory=list, description="Workout exercises")
-    created_at: Optional[datetime] = Field(None, description="Creation timestamp")
-    updated_at: Optional[datetime] = Field(None, description="Last update timestamp")
-    
-    @validator('id', pre=True)
-    def validate_uuid(cls, v):
-        if v is not None:
-            try:
-                uuid.UUID(str(v))
-            except ValueError:
-                raise ValueError('Invalid UUID format')
-        return v
+    id: Optional[str] = Field(None, description="The workout ID")
+    title: Optional[str] = Field(None, description="The workout title")
+    description: Optional[str] = Field(None, description="The workout description")
+    start_time: Optional[float] = Field(None, description="ISO 8601 timestamp of when the workout was recorded to have started")
+    end_time: Optional[float] = Field(None, description="ISO 8601 timestamp of when the workout was recorded to have ended")
+    updated_at: Optional[str] = Field(None, description="ISO 8601 timestamp of when the workout was last updated")
+    created_at: Optional[str] = Field(None, description="ISO 8601 timestamp of when the workout was created")
+    exercises: Optional[List[WorkoutExercise]] = Field(None, description="Workout exercises")
     
     class Config:
         extra = "forbid"
@@ -218,7 +205,7 @@ class DeletedWorkout(BaseModel):
     """Deleted workout event model."""
     type: str = Field(..., description="Indicates the type of the event (deleted)")
     id: str = Field(..., description="The unique identifier of the deleted workout")
-    deleted_at: datetime = Field(..., description="A date string indicating when the workout was deleted")
+    deleted_at: Optional[str] = Field(None, description="A date string indicating when the workout was deleted")
     
     class Config:
         extra = "forbid"
@@ -252,14 +239,13 @@ class WorkoutEventsResponse(HevyResponse):
 # Routine-related models
 class RoutineExercise(BaseModel):
     """Exercise within a routine."""
-    id: Optional[str] = Field(None, description="Exercise ID")
     index: Optional[int] = Field(None, description="Index indicating the order of the exercise in the routine")
     title: Optional[str] = Field(None, description="Title of the exercise")
-    exercise_template_id: str = Field(..., description="Exercise template ID", min_length=1)
-    superset_id: Optional[int] = Field(None, description="The id of the superset that the exercise belongs to")
-    rest_seconds: Optional[int] = Field(None, description="The rest time in seconds between sets of the exercise")
-    sets: List[ExerciseSet] = Field(default_factory=list, description="Exercise sets")
+    rest_seconds: Optional[str] = Field(None, description="The rest time in seconds between sets of the exercise")
     notes: Optional[str] = Field(None, description="Routine notes on the exercise")
+    exercise_template_id: Optional[str] = Field(None, description="The id of the exercise template. This can be used to fetch the exercise template")
+    supersets_id: Optional[int] = Field(None, description="The id of the superset that the exercise belongs to. A value of null indicates the exercise is not part of a superset")
+    sets: Optional[List[RoutineExerciseSet]] = Field(None, description="Exercise sets")
     
     class Config:
         extra = "forbid"
@@ -267,22 +253,12 @@ class RoutineExercise(BaseModel):
 
 class Routine(BaseModel):
     """Routine model."""
-    id: Optional[str] = Field(None, description="Routine ID (UUID)")
-    title: str = Field(..., description="Routine title", min_length=1)
-    folder_id: Optional[int] = Field(None, description="Folder ID")
-    notes: Optional[str] = Field(None, description="Routine notes")
-    exercises: List[RoutineExercise] = Field(default_factory=list, description="Routine exercises")
-    created_at: Optional[datetime] = Field(None, description="Creation timestamp")
-    updated_at: Optional[datetime] = Field(None, description="Last update timestamp")
-    
-    @validator('id', pre=True)
-    def validate_uuid(cls, v):
-        if v is not None:
-            try:
-                uuid.UUID(str(v))
-            except ValueError:
-                raise ValueError('Invalid UUID format')
-        return v
+    id: Optional[str] = Field(None, description="The routine ID")
+    title: Optional[str] = Field(None, description="The routine title")
+    folder_id: Optional[int] = Field(None, description="The routine folder ID")
+    updated_at: Optional[str] = Field(None, description="ISO 8601 timestamp of when the routine was last updated")
+    created_at: Optional[str] = Field(None, description="ISO 8601 timestamp of when the routine was created")
+    exercises: Optional[List[RoutineExercise]] = Field(None, description="Routine exercises")
     
     class Config:
         extra = "forbid"
@@ -311,11 +287,11 @@ class RoutineResponse(HevyResponse):
 
 class RoutineFolder(BaseModel):
     """Routine folder model."""
-    id: int = Field(..., description="Folder ID", ge=1)
+    id: Optional[int] = Field(None, description="The routine folder ID")
     index: Optional[int] = Field(None, description="The routine folder index. Describes the order of the folder in the list")
-    title: str = Field(..., description="Folder title", min_length=1)
-    created_at: Optional[datetime] = Field(None, description="Creation timestamp")
-    updated_at: Optional[datetime] = Field(None, description="Last update timestamp")
+    title: Optional[str] = Field(None, description="The routine folder title")
+    updated_at: Optional[str] = Field(None, description="ISO 8601 timestamp of when the folder was last updated")
+    created_at: Optional[str] = Field(None, description="ISO 8601 timestamp of when the folder was created")
     
     class Config:
         extra = "forbid"
@@ -336,11 +312,8 @@ class RoutineFoldersResponse(HevyResponse):
 # Webhook-related models
 class WebhookSubscription(BaseModel):
     """Webhook subscription model."""
-    id: Optional[str] = Field(None, description="Subscription ID")
-    url: str = Field(..., description="Webhook URL", pattern=r'^https?://.+')
-    auth_token: str = Field(..., alias="authToken", description="Auth token for webhook", min_length=1)
-    created_at: Optional[datetime] = Field(None, description="Creation timestamp")
-    updated_at: Optional[datetime] = Field(None, description="Last update timestamp")
+    authToken: Optional[str] = Field(None, description="The auth token that will be send as Authorization header in the webhook")
+    url: Optional[str] = Field(None, description="The webhook URL")
     
     class Config:
         extra = "forbid"
@@ -349,7 +322,7 @@ class WebhookSubscription(BaseModel):
 # Request payload models
 class CreateWorkoutRequest(BaseModel):
     """Request model for creating a workout."""
-    workout: Workout = Field(..., description="Workout data")
+    workout: Optional[Workout] = Field(None, description="Workout data")
     
     class Config:
         extra = "forbid"
@@ -365,7 +338,7 @@ class UpdateWorkoutRequest(BaseModel):
 
 class CreateRoutineRequest(BaseModel):
     """Request model for creating a routine."""
-    routine: Routine = Field(..., description="Routine data")
+    routine: Optional[Routine] = Field(None, description="Routine data")
     
     class Config:
         extra = "forbid"
@@ -389,8 +362,8 @@ class CreateRoutineFolderRequest(BaseModel):
 
 class CreateWebhookRequest(BaseModel):
     """Request model for creating a webhook subscription."""
-    url: str = Field(..., description="Webhook URL", pattern=r'^https?://.+')
-    auth_token: str = Field(..., alias="authToken", description="Auth token", min_length=1)
+    url: Optional[str] = Field(None, description="The webhook URL")
+    authToken: Optional[str] = Field(None, description="The auth token")
     
     class Config:
         extra = "forbid"
