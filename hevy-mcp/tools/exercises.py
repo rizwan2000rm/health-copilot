@@ -3,9 +3,6 @@ import json
 from .constants import API_BASE, API_KEY
 from .common import mcp, make_hevy_request
 from .types import (
-    ExerciseTemplatesResponse, 
-    ExerciseTemplate, 
-    ExerciseHistoryResponse,
     ExerciseTemplateID,
     PageNumber,
     PageSize,
@@ -22,9 +19,9 @@ async def get_exercise_templates(page: PageNumber = 1, pageSize: PageSize = 5) -
         pageSize: Items per page (1..100). Default: 5.
 
     Returns:
-        JSON string of raw API response (no response validation).
+        JSON string of raw API response.
 
-    Validation:
+    Requirements:
         - Requires `HEVY_API_KEY`.
         - `page >= 1`, `1 <= pageSize <= 100`.
 
@@ -43,13 +40,8 @@ async def get_exercise_templates(page: PageNumber = 1, pageSize: PageSize = 5) -
     if isinstance(result, tuple):
         return result[1]  # Return error message
     
-    # Validate response with Pydantic model
-    try:
-        validated_response = ExerciseTemplatesResponse(**result)
-        return json.dumps(validated_response.model_dump(), indent=2)
-    except Exception as e:
-        # If validation fails, return raw response with warning
-        return f"Warning: Response validation failed ({e}). Raw response:\n{json.dumps(result, indent=2)}"
+    # Return raw response without validation
+    return json.dumps(result, indent=2)
 
 
 @mcp.tool()
@@ -62,7 +54,7 @@ async def get_exercise_template(exerciseTemplateId: ExerciseTemplateID) -> str:
     Returns:
         JSON string of the template details.
 
-    Validation:
+    Requirements:
         - Requires `HEVY_API_KEY`.
         - `exerciseTemplateId` required.
 
@@ -83,13 +75,8 @@ async def get_exercise_template(exerciseTemplateId: ExerciseTemplateID) -> str:
     if isinstance(result, tuple):
         return result[1]  # Return error message
     
-    # Validate response with Pydantic model
-    try:
-        validated_response = ExerciseTemplate(**result)
-        return json.dumps(validated_response.model_dump(), indent=2)
-    except Exception as e:
-        # If validation fails, return raw response with warning
-        return f"Warning: Response validation failed ({e}). Raw response:\n{json.dumps(result, indent=2)}"
+    # Return raw response without validation
+    return json.dumps(result, indent=2)
 
 
 @mcp.tool()
@@ -108,7 +95,7 @@ async def get_exercise_history(
     Returns:
         JSON string with history entries (weights, reps, dates, etc.).
 
-    Validation:
+    Requirements:
         - Requires `HEVY_API_KEY`.
         - `exerciseTemplateId` required.
         - If both dates provided, `start_date <= end_date`.
@@ -138,10 +125,5 @@ async def get_exercise_history(
     if isinstance(result, tuple):
         return result[1]  # Return error message
     
-    # Validate response with Pydantic model
-    try:
-        validated_response = ExerciseHistoryResponse(**result)
-        return json.dumps(validated_response.model_dump(), indent=2)
-    except Exception as e:
-        # If validation fails, return raw response with warning
-        return f"Warning: Response validation failed ({e}). Raw response:\n{json.dumps(result, indent=2)}"
+    # Return raw response without validation
+    return json.dumps(result, indent=2)

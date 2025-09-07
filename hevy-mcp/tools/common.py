@@ -1,9 +1,8 @@
-from typing import Any, Union
+from typing import Any, Union, Dict
 import sys
 import httpx
 from mcp.server.fastmcp import FastMCP
 from .constants import API_BASE, USER_AGENT, API_KEY
-from .types import HevyAPIResponse, ErrorResponse
 
 
 # Initialize FastMCP server for Hevy tools (shared instance)
@@ -13,9 +12,9 @@ mcp = FastMCP("hevy")
 async def make_hevy_request(
     url: str,
     method: str = "GET",
-    params: dict[str, Any] | None = None,
-    payload: dict[str, Any] | None = None,
-) -> Union[dict[str, Any], tuple[None, str]]:
+    params: Dict[str, Any] | None = None,
+    payload: Dict[str, Any] | None = None,
+) -> Union[Dict[str, Any], tuple[None, str]]:
     """Make a request to the Hevy API with proper error handling.
     
     Args:
@@ -25,7 +24,7 @@ async def make_hevy_request(
         payload: JSON payload for POST/PUT/PATCH requests
         
     Returns:
-        dict[str, Any]: Success response data
+        Dict[str, Any]: Raw API response data
         tuple[None, str]: (None, error_message) on failure
     """
     headers = {

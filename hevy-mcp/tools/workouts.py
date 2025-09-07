@@ -1,15 +1,9 @@
-from typing import Any, Optional
+from typing import Any, Optional, Dict
 import sys
 import json
 from .constants import API_BASE, API_KEY
 from .common import mcp, make_hevy_request
 from .types import (
-    WorkoutsResponse,
-    Workout,
-    WorkoutCountResponse,
-    WorkoutEventsResponse,
-    CreateWorkoutRequest,
-    UpdateWorkoutRequest,
     WorkoutID,
     PageNumber,
     PageSize,
@@ -26,9 +20,9 @@ async def get_workouts(page: PageNumber = 1, pageSize: PageSize = 5) -> str:
         pageSize: Items per page (1..100). Default: 5.
 
     Returns:
-        JSON string of raw API response (no response validation).
+        JSON string of raw API response.
 
-    Validation:
+    Requirements:
         - Requires `HEVY_API_KEY`.
         - `page >= 1`, `1 <= pageSize <= 100`.
 
@@ -61,21 +55,12 @@ async def get_workouts(page: PageNumber = 1, pageSize: PageSize = 5) -> str:
     if not result["workouts"]:
         return "No workouts found for this user."
 
-    # Validate response with Pydantic model
-    try:
-        validated_response = WorkoutsResponse(**result)
-        formatted_workouts = []
-        for i, workout in enumerate(validated_response.workouts, 1):
-            formatted_workout = f"Workout {i}:\n{workout.model_dump()}"
-            formatted_workouts.append(formatted_workout)
-        return "\n\n---\n\n".join(formatted_workouts)
-    except Exception as e:
-        # If validation fails, fall back to original formatting
-        formatted_workouts = []
-        for i, workout in enumerate(result["workouts"], 1):
-            formatted_workout = f"Workout {i}:\n{workout}"
-            formatted_workouts.append(formatted_workout)
-        return f"Warning: Response validation failed ({e}). Raw response:\n\n" + "\n\n---\n\n".join(formatted_workouts)
+    # Format workouts without validation
+    formatted_workouts = []
+    for i, workout in enumerate(result["workouts"], 1):
+        formatted_workout = f"Workout {i}:\n{json.dumps(workout, indent=2)}"
+        formatted_workouts.append(formatted_workout)
+    return "\n\n---\n\n".join(formatted_workouts)
 
 
 @mcp.tool()
@@ -88,7 +73,7 @@ async def get_workout(workoutId: WorkoutID) -> str:
     Returns:
         JSON string of the full workout including exercises, sets, and metadata.
 
-    Validation:
+    Requirements:
         - Requires `HEVY_API_KEY`.
         - `workoutId` must resemble a UUID.
 
@@ -108,31 +93,32 @@ async def get_workout(workoutId: WorkoutID) -> str:
     if isinstance(result, tuple):
         return result[1]  # Return error message
     
-    # Validate response with Pydantic model
-    try:
-        validated_response = Workout(**result)
-        return json.dumps(validated_response.model_dump(), indent=2)
-    except Exception as e:
-        # If validation fails, return raw response with warning
-        return f"Warning: Response validation failed ({e}). Raw response:\n{json.dumps(result, indent=2)}"
+    # Return raw response without validation
+    return json.dumps(result, indent=2)
 
 
 @mcp.tool()
-async def create_workout(payload: CreateWorkoutRequest) -> str:
+async def create_workout(payload: Dict[str, Any]) -> str:
     """Create a workout.
 
     Args:
-        payload: A `CreateWorkoutRequest` with top-level `workout` object.
+        payload: Dictionary with top-level `workout` object.
             - Required: `workout.title` (string)
             - Optional: `workout.description`, `workout.start_time`, `workout.end_time`, 
               `workout.is_private`, `workout.exercises` (with sets)
 
     Returns:
-        JSON string of the created workout, or raw API payload on validation fallback.
+        JSON string of the created workout.
 
-    Validation:
+    Requirements:
         - Requires `HEVY_API_KEY`.
         - `workout` object required; `workout.title` required.
+
+    Hints for Complex Workouts:
+        Before creating complex workouts with exercises, consider fetching:
+        - Use `get_exercise_templates()` to find valid exercise_template_id values
+        - Use `get_workouts()` to see existing workout structures for reference
+        - Use `get_exercise_history()` to check previous performance for specific exercises
 
     Example:
         {
@@ -168,37 +154,37 @@ async def create_workout(payload: CreateWorkoutRequest) -> str:
             "so it is available to the server process."
         )
     url = f"{API_BASE}/workouts"
-    # Convert Pydantic model to dict for API request
-    payload_dict = payload.model_dump()
-    result = await make_hevy_request(url, method="POST", payload=payload_dict)
+    result = await make_hevy_request(url, method="POST", payload=payload)
     
     if isinstance(result, tuple):
         return result[1]  # Return error message
     
-    # Validate response with Pydantic model
-    try:
-        validated_response = Workout(**result)
-        return json.dumps(validated_response.model_dump(), indent=2)
-    except Exception as e:
-        # If validation fails, return raw response with warning
-        return f"Warning: Response validation failed ({e}). Raw response:\n{json.dumps(result, indent=2)}"
+    # Return raw response without validation
+    return json.dumps(result, indent=2)
 
 
 @mcp.tool()
-async def update_workout(workoutId: WorkoutID, payload: UpdateWorkoutRequest) -> str:
+async def update_workout(workoutId: WorkoutID, payload: Dict[str, Any]) -> str:
     """Update a workout by ID.
 
     Args:
         workoutId: Workout UUID.
-        payload: `UpdateWorkoutRequest` with a top-level partial `workout`.
+        payload: Dictionary with a top-level partial `workout`.
 
     Returns:
-        JSON string of the updated workout, or raw API payload on validation fallback.
+        JSON string of the updated workout.
 
-    Validation:
+    Requirements:
         - Requires `HEVY_API_KEY`.
         - `workoutId` must resemble a UUID.
         - `workout` object required; include only fields you want to change.
+
+    Hints for Complex Updates:
+        Before updating workouts with exercises, consider fetching:
+        - Use `get_workout(workoutId)` to see the current workout structure
+        - Use `get_exercise_templates()` to find valid exercise_template_id values
+        - Use `get_exercise_history()` to check previous performance for specific exercises
+        - Use `get_workouts()` to see other workout structures for reference
 
     Example:
         {
@@ -231,20 +217,13 @@ async def update_workout(workoutId: WorkoutID, payload: UpdateWorkoutRequest) ->
             "so it is available to the server process."
         )
     url = f"{API_BASE}/workouts/{workoutId}"
-    # Convert Pydantic model to dict for API request
-    payload_dict = payload.model_dump()
-    result = await make_hevy_request(url, method="PUT", payload=payload_dict)
+    result = await make_hevy_request(url, method="PUT", payload=payload)
     
     if isinstance(result, tuple):
         return result[1]  # Return error message
     
-    # Validate response with Pydantic model
-    try:
-        validated_response = Workout(**result)
-        return json.dumps(validated_response.model_dump(), indent=2)
-    except Exception as e:
-        # If validation fails, return raw response with warning
-        return f"Warning: Response validation failed ({e}). Raw response:\n{json.dumps(result, indent=2)}"
+    # Return raw response without validation
+    return json.dumps(result, indent=2)
 
 
 @mcp.tool()
@@ -254,7 +233,7 @@ async def get_workouts_count() -> str:
     Returns:
         JSON string with `{"count": <int>}`.
 
-    Validation:
+    Requirements:
         - Requires `HEVY_API_KEY`.
 
     Docs: https://api.hevyapp.com/docs/
@@ -270,13 +249,8 @@ async def get_workouts_count() -> str:
     if isinstance(result, tuple):
         return result[1]  # Return error message
     
-    # Validate response with Pydantic model
-    try:
-        validated_response = WorkoutCountResponse(**result)
-        return json.dumps(validated_response.model_dump(), indent=2)
-    except Exception as e:
-        # If validation fails, return raw response with warning
-        return f"Warning: Response validation failed ({e}). Raw response:\n{json.dumps(result, indent=2)}"
+    # Return raw response without validation
+    return json.dumps(result, indent=2)
 
 
 @mcp.tool()
@@ -289,9 +263,9 @@ async def get_workout_events(page: PageNumber = 1, pageSize: PageSize = 10, sinc
         since: Optional ISO8601 timestamp to filter events since.
 
     Returns:
-        JSON string of events page, or raw API payload on validation fallback.
+        JSON string of events page.
 
-    Validation:
+    Requirements:
         - Requires `HEVY_API_KEY`.
         - `page >= 1`, `1 <= pageSize <= 50`.
 
@@ -314,12 +288,7 @@ async def get_workout_events(page: PageNumber = 1, pageSize: PageSize = 10, sinc
     if isinstance(result, tuple):
         return result[1]  # Return error message
     
-    # Validate response with Pydantic model
-    try:
-        validated_response = WorkoutEventsResponse(**result)
-        return json.dumps(validated_response.model_dump(), indent=2)
-    except Exception as e:
-        # If validation fails, return raw response with warning
-        return f"Warning: Response validation failed ({e}). Raw response:\n{json.dumps(result, indent=2)}"
+    # Return raw response without validation
+    return json.dumps(result, indent=2)
 
 

@@ -1,16 +1,8 @@
-from typing import Any, Optional
+from typing import Any, Optional, Dict
 import json
 from .constants import API_BASE, API_KEY
 from .common import mcp, make_hevy_request
 from .types import (
-    RoutinesResponse,
-    Routine,
-    RoutineResponse,
-    RoutineFoldersResponse,
-    RoutineFolder,
-    CreateRoutineRequest,
-    UpdateRoutineRequest,
-    CreateRoutineFolderRequest,
     RoutineID,
     FolderID,
     PageNumber,
@@ -27,9 +19,9 @@ async def get_routines(page: PageNumber = 1, pageSize: PageSize = 5) -> str:
         pageSize: Items per page (1..100). Default: 5.
 
     Returns:
-        JSON string of raw API response (no response validation).
+        JSON string of raw API response.
 
-    Validation:
+    Requirements:
         - Requires `HEVY_API_KEY`.
         - `page >= 1`, `1 <= pageSize <= 100`.
 
@@ -48,30 +40,32 @@ async def get_routines(page: PageNumber = 1, pageSize: PageSize = 5) -> str:
     if isinstance(result, tuple):
         return result[1]  # Return error message
     
-    # Validate response with Pydantic model
-    try:
-        validated_response = RoutinesResponse(**result)
-        return json.dumps(validated_response.model_dump(), indent=2)
-    except Exception as e:
-        # If validation fails, return raw response with warning
-        return f"Warning: Response validation failed ({e}). Raw response:\n{json.dumps(result, indent=2)}"
+    # Return raw response without validation
+    return json.dumps(result, indent=2)
 
 
 @mcp.tool()
-async def create_routine(payload: CreateRoutineRequest) -> str:
+async def create_routine(payload: Dict[str, Any]) -> str:
     """Create a routine.
 
     Args:
-        payload: `CreateRoutineRequest` with top-level `routine` object.
+        payload: Dictionary with top-level `routine` object.
             - Required: `routine.title` (string)
             - Optional: `folder_id`, `notes`, `exercises`
 
     Returns:
-        JSON string of the created routine, or raw API payload on validation fallback.
+        JSON string of the created routine.
 
-    Validation:
+    Requirements:
         - Requires `HEVY_API_KEY`.
         - `routine` object required; `routine.title` required.
+
+    Hints for Complex Routines:
+        Before creating complex routines with exercises, consider fetching:
+        - Use `get_exercise_templates()` to find valid exercise_template_id values
+        - Use `get_routine_folders()` to find valid folder_id values for organization
+        - Use `get_routines()` to see existing routine structures for reference
+        - Use `get_exercise_history()` to check previous performance for specific exercises
 
     Example:
         {
@@ -107,20 +101,13 @@ async def create_routine(payload: CreateRoutineRequest) -> str:
         )
 
     url = f"{API_BASE}/routines"
-    # Convert Pydantic model to dict for API request
-    payload_dict = payload.model_dump()
-    result = await make_hevy_request(url, method="POST", payload=payload_dict)
+    result = await make_hevy_request(url, method="POST", payload=payload)
     
     if isinstance(result, tuple):
         return result[1]  # Return error message
     
-    # Validate response with Pydantic model
-    try:
-        validated_response = Routine(**result)
-        return json.dumps(validated_response.model_dump(), indent=2)
-    except Exception as e:
-        # If validation fails, return raw response with warning
-        return f"Warning: Response validation failed ({e}). Raw response:\n{json.dumps(result, indent=2)}"
+    # Return raw response without validation
+    return json.dumps(result, indent=2)
 
 
 @mcp.tool()
@@ -133,7 +120,7 @@ async def get_routine(routineId: RoutineID) -> str:
     Returns:
         JSON string of the routine including exercises and sets.
 
-    Validation:
+    Requirements:
         - Requires `HEVY_API_KEY`.
         - `routineId` must resemble a UUID.
 
@@ -154,30 +141,33 @@ async def get_routine(routineId: RoutineID) -> str:
     if isinstance(result, tuple):
         return result[1]  # Return error message
     
-    # Validate response with Pydantic model
-    try:
-        validated_response = RoutineResponse(**result)
-        return json.dumps(validated_response.model_dump(), indent=2)
-    except Exception as e:
-        # If validation fails, return raw response with warning
-        return f"Warning: Response validation failed ({e}). Raw response:\n{json.dumps(result, indent=2)}"
+    # Return raw response without validation
+    return json.dumps(result, indent=2)
 
 
 @mcp.tool()
-async def update_routine(routineId: RoutineID, payload: UpdateRoutineRequest) -> str:
+async def update_routine(routineId: RoutineID, payload: Dict[str, Any]) -> str:
     """Update a routine by ID.
 
     Args:
         routineId: Routine UUID.
-        payload: `UpdateRoutineRequest` with a top-level partial `routine`.
+        payload: Dictionary with a top-level partial `routine`.
 
     Returns:
-        JSON string of the updated routine, or raw API payload on validation fallback.
+        JSON string of the updated routine.
 
-    Validation:
+    Requirements:
         - Requires `HEVY_API_KEY`.
         - `routineId` must resemble a UUID.
         - `routine` object required; include only fields you want to change.
+
+    Hints for Complex Updates:
+        Before updating routines with exercises, consider fetching:
+        - Use `get_routine(routineId)` to see the current routine structure
+        - Use `get_exercise_templates()` to find valid exercise_template_id values
+        - Use `get_routine_folders()` to find valid folder_id values for organization
+        - Use `get_routines()` to see other routine structures for reference
+        - Use `get_exercise_history()` to check previous performance for specific exercises
 
     Example:
         {
@@ -212,20 +202,13 @@ async def update_routine(routineId: RoutineID, payload: UpdateRoutineRequest) ->
         )
 
     url = f"{API_BASE}/routines/{routineId}"
-    # Convert Pydantic model to dict for API request
-    payload_dict = payload.model_dump()
-    result = await make_hevy_request(url, method="PUT", payload=payload_dict)
+    result = await make_hevy_request(url, method="PUT", payload=payload)
     
     if isinstance(result, tuple):
         return result[1]  # Return error message
     
-    # Validate response with Pydantic model
-    try:
-        validated_response = Routine(**result)
-        return json.dumps(validated_response.model_dump(), indent=2)
-    except Exception as e:
-        # If validation fails, return raw response with warning
-        return f"Warning: Response validation failed ({e}). Raw response:\n{json.dumps(result, indent=2)}"
+    # Return raw response without validation
+    return json.dumps(result, indent=2)
 
 
 @mcp.tool()
@@ -237,9 +220,9 @@ async def get_routine_folders(page: PageNumber = 1, pageSize: PageSize = 5) -> s
         pageSize: Items per page (1..100). Default: 5.
 
     Returns:
-        JSON string of raw API response (no response validation).
+        JSON string of raw API response.
 
-    Validation:
+    Requirements:
         - Requires `HEVY_API_KEY`.
         - `page >= 1`, `1 <= pageSize <= 100`.
 
@@ -258,29 +241,29 @@ async def get_routine_folders(page: PageNumber = 1, pageSize: PageSize = 5) -> s
     if isinstance(result, tuple):
         return result[1]  # Return error message
     
-    # Validate response with Pydantic model
-    try:
-        validated_response = RoutineFoldersResponse(**result)
-        return json.dumps(validated_response.model_dump(), indent=2)
-    except Exception as e:
-        # If validation fails, return raw response with warning
-        return f"Warning: Response validation failed ({e}). Raw response:\n{json.dumps(result, indent=2)}"
+    # Return raw response without validation
+    return json.dumps(result, indent=2)
 
 
 @mcp.tool()
-async def create_routine_folder(payload: CreateRoutineFolderRequest) -> str:
+async def create_routine_folder(payload: Dict[str, Any]) -> str:
     """Create a routine folder.
 
     Args:
-        payload: `CreateRoutineFolderRequest` with top-level `routine_folder` object.
+        payload: Dictionary with top-level `routine_folder` object.
             - Required: `routine_folder.title` (string)
 
     Returns:
-        JSON string of the created folder, or raw API payload on validation fallback.
+        JSON string of the created folder.
 
-    Validation:
+    Requirements:
         - Requires `HEVY_API_KEY`.
         - `routine_folder` object required; `title` required.
+
+    Hints for Organization:
+        Before creating routine folders, consider fetching:
+        - Use `get_routine_folders()` to see existing folder names and avoid duplicates
+        - Use `get_routines()` to understand how folders are used for organization
 
     Example:
         {"routine_folder": {"title": "Push Pull 🏋️‍♂️"}}
@@ -294,20 +277,13 @@ async def create_routine_folder(payload: CreateRoutineFolderRequest) -> str:
         )
 
     url = f"{API_BASE}/routine_folders"
-    # Convert Pydantic model to dict for API request
-    payload_dict = payload.model_dump()
-    result = await make_hevy_request(url, method="POST", payload=payload_dict)
+    result = await make_hevy_request(url, method="POST", payload=payload)
     
     if isinstance(result, tuple):
         return result[1]  # Return error message
     
-    # Validate response with Pydantic model
-    try:
-        validated_response = RoutineFolder(**result)
-        return json.dumps(validated_response.model_dump(), indent=2)
-    except Exception as e:
-        # If validation fails, return raw response with warning
-        return f"Warning: Response validation failed ({e}). Raw response:\n{json.dumps(result, indent=2)}"
+    # Return raw response without validation
+    return json.dumps(result, indent=2)
 
 
 @mcp.tool()
@@ -320,7 +296,7 @@ async def get_routine_folder(folderId: FolderID) -> str:
     Returns:
         JSON string of the folder including title and metadata.
 
-    Validation:
+    Requirements:
         - Requires `HEVY_API_KEY`.
         - `folderId` must be a positive integer.
 
@@ -341,12 +317,7 @@ async def get_routine_folder(folderId: FolderID) -> str:
     if isinstance(result, tuple):
         return result[1]  # Return error message
     
-    # Validate response with Pydantic model
-    try:
-        validated_response = RoutineFolder(**result)
-        return json.dumps(validated_response.model_dump(), indent=2)
-    except Exception as e:
-        # If validation fails, return raw response with warning
-        return f"Warning: Response validation failed ({e}). Raw response:\n{json.dumps(result, indent=2)}"
+    # Return raw response without validation
+    return json.dumps(result, indent=2)
 
 
