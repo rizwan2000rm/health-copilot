@@ -1,20 +1,179 @@
 # Cursor Rules for Health Copilot Project
 
-## Testing and Building
+## Project Overview
 
-- Do not run tests or build processes - these will be done manually
-- Do not create throwaway files for testing or experimentation
-- Focus on code implementation without executing test suites
+This is a health and fitness application with two main components:
 
-## Documentation
+1. **AI Fitness Coach Agent** (`agent/`) - AI-powered fitness coaching using Ollama
+2. **Hevy MCP Server** (`hevy-mcp/`) - Model Context Protocol server for Hevy API integration
 
-- Document everything in a single README file
-- Update the README file whenever it's relevant to do so
-- Keep documentation current and comprehensive
+## MCP (Model Context Protocol) Guidelines
 
-## Code Quality
+### Before Planning Tasks
 
-- Write clean, well-structured code
-- Follow existing code patterns and conventions
-- Ensure code is production-ready
-- Put related code together in related files
+- **ALWAYS** reference the MCP documentation in `/hevy-mcp/documentation/` before implementing MCP-related features
+- Review `python-sdk.md` for MCP Python SDK best practices
+- Check `llms-full.txt` for comprehensive MCP specification details
+
+### MCP Server Development Rules
+
+- Use `FastMCP` from `mcp.server.fastmcp` for server implementation
+- Follow the established pattern in `hevy-mcp/tools/` for tool organization
+- All MCP tools must use proper Pydantic models for type safety (see `types.py`)
+- Implement comprehensive error handling with graceful fallbacks
+- Use `make_hevy_request()` helper function for API calls
+- Include detailed docstrings with examples for all MCP tools
+- Validate API responses with Pydantic models, fallback to raw responses if validation fails
+
+### MCP Tool Structure
+
+- Tools should be organized by domain (workouts, routines, exercises, webhooks)
+- Each tool file should import from `tools.common` for shared MCP instance
+- Use type aliases (`WorkoutID`, `RoutineID`, `ExerciseTemplateID`) for clarity
+- Follow the request/response pattern established in existing tools
+
+### MCP Configuration
+
+- Server runs on STDIO transport (`mcp.run(transport='stdio')`)
+- Requires `HEVY_API_KEY` environment variable
+- Use `uv` for dependency management in MCP server
+- Follow the configuration pattern in `claude-desktop-config.json`
+
+## Code Quality Standards
+
+### Python Code Style
+
+- Use Python 3.13+ for MCP server, Python 3.8+ for agent
+- Follow PEP 8 style guidelines
+- Use type hints throughout the codebase
+- Prefer `httpx` for HTTP requests in MCP tools
+- Use Pydantic v2 for data validation and serialization
+
+### Error Handling
+
+- Implement comprehensive error handling for all API calls
+- Provide user-friendly error messages
+- Handle network errors gracefully
+- Log errors appropriately without exposing sensitive information
+- Use try-catch blocks for external API calls
+
+### Documentation
+
+- Document all MCP tools with detailed docstrings
+- Include examples in docstrings where helpful
+- Update README files when adding new features
+- Document API key requirements and configuration steps
+- Maintain clear separation between agent and MCP server documentation
+
+## Project Structure Rules
+
+### File Organization
+
+- Keep MCP-related code in `hevy-mcp/` directory
+- Keep AI agent code in `agent/` directory
+- Use `tools/` subdirectory for MCP tool implementations
+- Use `pyproject.toml` for MCP server dependencies
+- Use `requirements.txt` for agent dependencies
+
+### Dependencies
+
+- Use `uv` for MCP server dependency management
+- Use `pip` with virtual environment for agent dependencies
+- Pin dependency versions for stability
+- Keep dependencies minimal and focused
+
+## Development Workflow
+
+### Before Making Changes
+
+1. **Check MCP Documentation**: Always review `/hevy-mcp/documentation/` before implementing MCP features
+2. **Understand Existing Patterns**: Study existing tool implementations in `tools/` directory
+3. **Verify Dependencies**: Ensure all required packages are installed
+4. **Check Environment**: Verify `HEVY_API_KEY` is available for MCP tools
+
+### Code Review Checklist
+
+- [ ] MCP tools follow established patterns
+- [ ] Pydantic models are properly defined
+- [ ] Error handling is comprehensive
+- [ ] Documentation is updated
+- [ ] Type hints are used throughout
+- [ ] API key requirements are documented
+
+## Security Considerations
+
+- Never hardcode API keys in source code
+- Use environment variables for sensitive configuration
+- Validate all input parameters
+- Handle authentication errors gracefully
+- Log security-relevant events appropriately
+
+## Performance Guidelines
+
+- Use pagination for large data sets
+- Implement proper caching where appropriate
+- Avoid unnecessary API calls
+- Use async/await patterns for I/O operations
+- Monitor API rate limits
+
+## Integration Guidelines
+
+- MCP server should be stateless and idempotent
+- Tools should be focused and single-purpose
+- Maintain backward compatibility when possible
+- Use semantic versioning for releases
+- Document breaking changes clearly
+
+## Common Patterns
+
+### MCP Tool Implementation
+
+```python
+from tools.common import mcp
+from tools.types import SomeRequest, SomeResponse
+
+@mcp.tool()
+async def some_tool(param: str) -> str:
+    """Tool description with examples.
+
+    Args:
+        param: Parameter description
+
+    Returns:
+        Description of return value
+
+    Example:
+        result = await some_tool("example")
+    """
+    # Implementation here
+    pass
+```
+
+### Error Handling Pattern
+
+```python
+async def api_call():
+    try:
+        result = await make_hevy_request(url, method, params, payload)
+        if isinstance(result, tuple):  # Error case
+            return f"Error: {result[1]}"
+        return result
+    except Exception as e:
+        return f"Unexpected error: {str(e)}"
+```
+
+## Environment Setup
+
+- Use virtual environments for Python projects
+- Set up proper MCP client configuration
+- Ensure Ollama is running for AI agent
+- Configure Claude Desktop integration properly
+- Test MCP server connectivity before development
+
+## Troubleshooting
+
+- Check MCP Inspector for tool debugging
+- Verify API key configuration
+- Check network connectivity for API calls
+- Review error logs for detailed information
+- Use MCP documentation for protocol issues
