@@ -98,6 +98,41 @@ Set `HEVY_API_KEY` in your MCP client configuration so it is available in the se
 - `mcp[cli]>=1.13.1` - Model Context Protocol framework
 - `pydantic>=2.0.0` - Data validation and type safety
 
+## Using MCP Inspector (STDIO)
+
+You can inspect and invoke this MCP server using MCP Inspector.
+
+1. Start MCP Inspector
+
+```bash
+npx @modelcontextprotocol/inspector
+```
+
+2. In the Inspector UI, configure a new connection:
+
+- **Transport**: STDIO
+- **Command**: `/Users/rizwan/.local/bin/uv` (or run `which uv` to find your path)
+- **Arguments** (each as a separate arg, in order):
+  - `--directory`
+  - `/Users/rizwan/work/health-copilot/hevy-mcp/`
+  - `run`
+  - `app.py`
+- **Environment Variables**:
+  - `HEVY_API_KEY`: your Hevy API key
+
+3. Click Connect
+
+If successful, you should see the `hevy` server connect and its tools (workouts, routines, exercises, webhooks) become available to invoke.
+
+Notes:
+
+- This server communicates over STDIO (`mcp.run(transport='stdio')` in `app.py`).
+- Ensure `uv` is installed and accessible. If needed, install from `https://github.com/astral-sh/uv` and run `uv sync` in this directory once.
+- If you prefer using a global Python instead of `uv`, you must ensure `mcp` and other deps from `pyproject.toml` are installed in that interpreter; then set:
+  - **Command**: your Python path (for example `/opt/homebrew/bin/python3`)
+  - **Arguments**: `/Users/rizwan/work/health-copilot/hevy-mcp/app.py`
+  - Plus the same `HEVY_API_KEY` environment variable
+
 ## Error Handling
 
 The server provides comprehensive error handling:
