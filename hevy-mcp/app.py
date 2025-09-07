@@ -6,6 +6,7 @@ from tools import routines
 from tools import workouts
 from tools import exercises
 from tools import webhooks
+from tools import schemas
 
 def signal_handler(signum, frame):
     """Handle shutdown signals gracefully."""
