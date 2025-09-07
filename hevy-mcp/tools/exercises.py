@@ -15,14 +15,20 @@ from .types import (
 
 @mcp.tool()
 async def get_exercise_templates(page: PageNumber = 1, pageSize: PageSize = 5) -> str:
-    """Get exercise templates available on the account.
-    
+    """List exercise templates (paged).
+
     Args:
-        page: Page number (default: 1, must be 1 or greater)
-        pageSize: Number of templates per page (default: 5, max: 100)
-        
-    Note: Most users only need the first page with default pageSize=5.
-    This endpoint supports pageSize up to 100.
+        page: Page number (>= 1). Default: 1.
+        pageSize: Items per page (1..100). Default: 5.
+
+    Returns:
+        JSON string of raw API response (no response validation).
+
+    Validation:
+        - Requires `HEVY_API_KEY`.
+        - `page >= 1`, `1 <= pageSize <= 100`.
+
+    Docs: https://api.hevyapp.com/docs/
     """
     if not API_KEY:
         return (
@@ -49,11 +55,21 @@ async def get_exercise_templates(page: PageNumber = 1, pageSize: PageSize = 5) -
 @mcp.tool()
 async def get_exercise_template(exerciseTemplateId: ExerciseTemplateID) -> str:
     """Get a single exercise template by ID.
-    
+
     Args:
-        exerciseTemplateId: The exercise template ID (e.g., "05293BCA")
-        
-    Returns: Complete exercise template details including name, category, etc.
+        exerciseTemplateId: Exercise template ID (e.g., "05293BCA").
+
+    Returns:
+        JSON string of the template details.
+
+    Validation:
+        - Requires `HEVY_API_KEY`.
+        - `exerciseTemplateId` required.
+
+    Example:
+        get_exercise_template("05293BCA")
+
+    Docs: https://api.hevyapp.com/docs/
     """
     if not API_KEY:
         return (
@@ -82,20 +98,26 @@ async def get_exercise_history(
     start_date: Optional[ISODateTime] = None, 
     end_date: Optional[ISODateTime] = None
 ) -> str:
-    """Get exercise history for a specific exercise template.
-    
+    """Get exercise history for a template.
+
     Args:
-        exerciseTemplateId: The exercise template ID (e.g., "05293BCA")
-        start_date: Optional start date for filtering (ISO 8601 format, e.g., "2024-01-01T00:00:00Z")
-        end_date: Optional end date for filtering (ISO 8601 format, e.g., "2024-12-31T23:59:59Z")
-        
-    Returns: List of exercise history entries with weights, reps, dates, etc.
-    
-    Example: Get all history for bench press
+        exerciseTemplateId: Exercise template ID (e.g., "05293BCA").
+        start_date: Optional ISO8601 start.
+        end_date: Optional ISO8601 end.
+
+    Returns:
+        JSON string with history entries (weights, reps, dates, etc.).
+
+    Validation:
+        - Requires `HEVY_API_KEY`.
+        - `exerciseTemplateId` required.
+        - If both dates provided, `start_date <= end_date`.
+
+    Examples:
         get_exercise_history("05293BCA")
-        
-    Example: Get history for last 30 days
         get_exercise_history("05293BCA", start_date="2024-11-01T00:00:00Z")
+
+    Docs: https://api.hevyapp.com/docs/
     """
     if not API_KEY:
         return (

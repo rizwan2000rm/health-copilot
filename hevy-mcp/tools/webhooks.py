@@ -10,19 +10,28 @@ from .types import (
 
 @mcp.tool()
 async def create_webhook_subscription(payload: CreateWebhookRequest) -> str:
-    """Create a new webhook subscription.
-    
+    """Create a webhook subscription.
+
     Args:
-        payload: Must include:
-            - url: string (required) - The webhook URL
-            - authToken: string (required) - Auth token sent as Authorization header
-            
-    Example payload:
+        payload: `CreateWebhookRequest` with:
+            - `url`: webhook URL
+            - `authToken`: token echoed as Authorization header
+
+    Returns:
+        JSON string of the created subscription.
+
+    Validation:
+        - Requires `HEVY_API_KEY`.
+        - `url` and `authToken` are required.
+
+    Example:
         {"url": "https://example.com/hevy-webhook", "authToken": "Bearer mytoken"}
-        
-    Note: Your endpoint must respond with 200 OK within 5 seconds, 
-    otherwise delivery will be retried. When a workout is created, 
-    you'll receive a POST with: {"id": "...", "payload": {"workoutId": "..."}}
+
+    Delivery:
+        Your endpoint should return 200 OK within ~5s; otherwise deliveries are retried.
+        Example event: {"id": "...", "payload": {"workoutId": "..."}}
+
+    Docs: https://api.hevyapp.com/docs/
     """
     if not API_KEY:
         return (
@@ -50,8 +59,14 @@ async def create_webhook_subscription(payload: CreateWebhookRequest) -> str:
 @mcp.tool()
 async def get_webhook_subscription() -> str:
     """Get the current webhook subscription.
-    
-    Returns: Current webhook details including URL and auth token.
+
+    Returns:
+        JSON string of the current subscription (URL, auth token, timestamps).
+
+    Validation:
+        - Requires `HEVY_API_KEY`.
+
+    Docs: https://api.hevyapp.com/docs/
     """
     if not API_KEY:
         return (
@@ -77,8 +92,14 @@ async def get_webhook_subscription() -> str:
 @mcp.tool()
 async def delete_webhook_subscription() -> str:
     """Delete the current webhook subscription.
-    
-    Returns: Confirmation message when successfully deleted.
+
+    Returns:
+        Confirmation message or empty JSON on success.
+
+    Validation:
+        - Requires `HEVY_API_KEY`.
+
+    Docs: https://api.hevyapp.com/docs/
     """
     if not API_KEY:
         return (

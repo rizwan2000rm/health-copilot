@@ -70,7 +70,7 @@ class ExerciseTemplatesResponse(HevyResponse):
     """Response model for exercise templates list."""
     exercise_templates: List[ExerciseTemplate] = Field(..., alias="exercise_templates")
     page: int = Field(..., ge=1, description="Current page number")
-    page_count: Optional[int] = Field(None, alias="page_count", ge=1, description="Total number of pages")
+    page_count: int = Field(..., alias="page_count", ge=1, description="Total number of pages")
     page_size: Optional[int] = Field(None, alias="pageSize", ge=1, le=100, description="Number of items per page")
     total: Optional[int] = Field(None, ge=0, description="Total number of exercise templates")
     
@@ -189,7 +189,7 @@ class WorkoutsResponse(HevyResponse):
     """Response model for workouts list."""
     workouts: List[Workout] = Field(..., description="List of workouts")
     page: int = Field(..., ge=1, description="Current page number")
-    page_count: Optional[int] = Field(None, alias="page_count", ge=1, description="Total number of pages")
+    page_count: int = Field(..., alias="page_count", ge=1, description="Total number of pages")
     page_size: Optional[int] = Field(None, alias="pageSize", ge=1, le=100, description="Number of items per page")
     total: Optional[int] = Field(None, ge=0, description="Total number of workouts")
     
@@ -199,7 +199,7 @@ class WorkoutsResponse(HevyResponse):
 
 class WorkoutCountResponse(HevyResponse):
     """Response model for workout count."""
-    count: int = Field(..., ge=0, description="Number of workouts")
+    workout_count: int = Field(..., alias="workout_count", ge=0, description="Number of workouts")
     
     class Config:
         extra = "forbid"
@@ -293,8 +293,17 @@ class RoutinesResponse(HevyResponse):
     """Response model for routines list."""
     routines: List[Routine] = Field(..., description="List of routines")
     page: int = Field(..., ge=1, description="Current page number")
+    page_count: int = Field(..., alias="page_count", ge=1, description="Total number of pages")
     page_size: int = Field(..., ge=1, le=100, description="Number of items per page")
     total: Optional[int] = Field(None, ge=0, description="Total number of routines")
+    
+    class Config:
+        extra = "forbid"
+
+
+class RoutineResponse(HevyResponse):
+    """Response model for a single routine."""
+    routine: Routine = Field(..., description="The routine data")
     
     class Config:
         extra = "forbid"
@@ -314,8 +323,9 @@ class RoutineFolder(BaseModel):
 
 class RoutineFoldersResponse(HevyResponse):
     """Response model for routine folders list."""
-    folders: List[RoutineFolder] = Field(..., description="List of routine folders")
+    routine_folders: List[RoutineFolder] = Field(..., alias="routine_folders", description="List of routine folders")
     page: int = Field(..., ge=1, description="Current page number")
+    page_count: int = Field(..., alias="page_count", ge=1, description="Total number of pages")
     page_size: int = Field(..., ge=1, le=100, description="Number of items per page")
     total: Optional[int] = Field(None, ge=0, description="Total number of folders")
     
@@ -400,6 +410,7 @@ HevyAPIResponse = Union[
     DeletedWorkout,
     RoutinesResponse,
     Routine,
+    RoutineResponse,
     RoutineFoldersResponse,
     RoutineFolder,
     WebhookSubscription,

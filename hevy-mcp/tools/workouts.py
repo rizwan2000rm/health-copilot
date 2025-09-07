@@ -19,14 +19,23 @@ from .types import (
 
 @mcp.tool()
 async def get_workouts(page: PageNumber = 1, pageSize: PageSize = 5) -> str:
-    """Get workouts for a user.
+    """List workouts (paged).
 
     Args:
-        page: Page number (default: 1, must be 1 or greater)
-        pageSize: Number of workouts per page (default: 5, max: 10)
-        
-    Note: Most users only need the first page with default pageSize=5.
-    This endpoint supports pageSize up to 10.
+        page: Page number (>= 1). Default: 1.
+        pageSize: Items per page (1..10). Default: 5.
+
+    Returns:
+        JSON string of raw API response (no response validation).
+
+    Validation:
+        - Requires `HEVY_API_KEY`.
+        - `page >= 1`, `1 <= pageSize <= 10`.
+
+    Example:
+        get_workouts()  # first 5 workouts
+
+    Docs: https://api.hevyapp.com/docs/
     """
     if not API_KEY:
         return (
@@ -74,9 +83,19 @@ async def get_workout(workoutId: WorkoutID) -> str:
     """Get a single workout by ID.
 
     Args:
-        workoutId: The workout ID (UUID format)
-        
-    Returns: Complete workout details including exercises, sets, and metadata.
+        workoutId: Workout UUID.
+
+    Returns:
+        JSON string of the full workout including exercises, sets, and metadata.
+
+    Validation:
+        - Requires `HEVY_API_KEY`.
+        - `workoutId` must resemble a UUID.
+
+    Example:
+        get_workout("c1f1e7b6-7a1a-4f8c-9baf-2a6c6b6b9a22")
+
+    Docs: https://api.hevyapp.com/docs/
     """
     if not API_KEY:
         return (
@@ -100,17 +119,25 @@ async def get_workout(workoutId: WorkoutID) -> str:
 
 @mcp.tool()
 async def create_workout(payload: CreateWorkoutRequest) -> str:
-    """Create a new workout.
+    """Create a workout.
 
     Args:
-        payload: Must include top-level `workout` object with:
-            - name: string (required)
-            - date: string (optional, ISO8601 format)
-            - notes: string (optional)
-            - exercises: array (optional)
-            
-    Example payload:
-        {"workout": {"name": "Morning Workout", "notes": "Felt great today!"}}
+        payload: A `CreateWorkoutRequest` with top-level `workout` object.
+            - Required: `workout.title` or `workout.name` (string)
+            - Optional: `workout.description`, `workout.start_time`, `workout.end_time`, 
+              `workout.is_private`, `workout.exercises` (with sets)
+
+    Returns:
+        JSON string of the created workout, or raw API payload on validation fallback.
+
+    Validation:
+        - Requires `HEVY_API_KEY`.
+        - `workout` object required; `workout.title` or `workout.name` required.
+
+    Example:
+        {"workout": {"title": "Morning Push", "description": "Upper body workout"}}
+
+    Docs: https://api.hevyapp.com/docs/
     """
     if not API_KEY:
         return (
@@ -139,15 +166,21 @@ async def update_workout(workoutId: WorkoutID, payload: UpdateWorkoutRequest) ->
     """Update a workout by ID.
 
     Args:
-        workoutId: The workout ID (UUID format)
-        payload: Must include top-level `workout` object with fields to update:
-            - name: string (optional)
-            - date: string (optional, ISO8601 format)
-            - notes: string (optional)
-            - exercises: array (optional)
-            
-    Example payload:
-        {"workout": {"name": "Updated Workout", "notes": "New notes"}}
+        workoutId: Workout UUID.
+        payload: `UpdateWorkoutRequest` with a top-level partial `workout`.
+
+    Returns:
+        JSON string of the updated workout, or raw API payload on validation fallback.
+
+    Validation:
+        - Requires `HEVY_API_KEY`.
+        - `workoutId` must resemble a UUID.
+        - `workout` object required; include only fields you want to change.
+
+    Example:
+        {"workout": {"name": "Upper Body - Week 2", "notes": "Felt strong"}}
+
+    Docs: https://api.hevyapp.com/docs/
     """
     if not API_KEY:
         return (
@@ -173,7 +206,16 @@ async def update_workout(workoutId: WorkoutID, payload: UpdateWorkoutRequest) ->
 
 @mcp.tool()
 async def get_workouts_count() -> str:
-    """Get the total number of workouts on the account."""
+    """Get the total number of workouts for the account.
+
+    Returns:
+        JSON string with `{"count": <int>}`.
+
+    Validation:
+        - Requires `HEVY_API_KEY`.
+
+    Docs: https://api.hevyapp.com/docs/
+    """
     if not API_KEY:
         return (
             "HEVY_API_KEY is required. Set it in your MCP client config "
@@ -196,15 +238,24 @@ async def get_workouts_count() -> str:
 
 @mcp.tool()
 async def get_workout_events(page: PageNumber = 1, pageSize: PageSize = 10, since: Optional[ISODateTime] = None) -> str:
-    """Get a paged list of workout events since a given date.
+    """List workout events (paged) with optional time filter.
 
     Args:
-        page: Page number (default: 1, must be 1 or greater)
-        pageSize: Page size (default: 10, max: 50)
-        since: ISO8601 timestamp to filter events since (optional)
-        
-    Note: Most users only need the first page with default pageSize=10.
-    This endpoint supports pageSize up to 50.
+        page: Page number (>= 1). Default: 1.
+        pageSize: Items per page (1..50). Default: 10.
+        since: Optional ISO8601 timestamp to filter events since.
+
+    Returns:
+        JSON string of events page, or raw API payload on validation fallback.
+
+    Validation:
+        - Requires `HEVY_API_KEY`.
+        - `page >= 1`, `1 <= pageSize <= 50`.
+
+    Example:
+        get_workout_events(since="2025-01-01T00:00:00Z")
+
+    Docs: https://api.hevyapp.com/docs/
     """
     if not API_KEY:
         return (
