@@ -12,7 +12,7 @@ from fitness_coach import FitnessCoach
 class AsyncConsoleUI:
     """Async console UI for MCP integration."""
     
-    def __init__(self, model_name: str = "llama3.2:3b"):
+    def __init__(self, model_name: str = "qwen2.5:3b"):
         """
         Initialize the console UI.
         

@@ -11,7 +11,7 @@ This project consists of two main components:
 
 ## Features
 
-- 🤖 AI-powered fitness coaching using Ollama (llama3.2:3b)
+- 🤖 AI-powered fitness coaching using Ollama (qwen2.5:3b)
 - 📚 Knowledge base with fitness research papers and guides
 - 🏋️‍♂️ Workout tracking and management via Hevy API
 - 🔧 MCP tool integration for enhanced functionality
@@ -95,7 +95,7 @@ Make sure Ollama is running with the required model:
 
 ```bash
 ollama serve
-ollama pull llama3.2:3b
+ollama pull qwen2.5:3b
 ```
 
 ## Running the Application

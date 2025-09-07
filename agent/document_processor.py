@@ -21,10 +21,10 @@ class DocumentProcessor:
             print(f"❌ Failed to load nomic-embed-text: {e}")
             print("🔄 Falling back to alternative embedding model...")
             try:
-                self.embeddings = OllamaEmbeddings(model="llama3.2:3b")
-                print("✅ Using llama3.2:3b for embeddings")
+                self.embeddings = OllamaEmbeddings(model="qwen2.5:3b")
+                print("✅ Using qwen2.5:3b for embeddings")
             except Exception as e2:
-                print(f"❌ Failed to load llama3.2:3b: {e2}")
+                print(f"❌ Failed to load qwen2.5:3b: {e2}")
                 raise Exception("No suitable embedding model available. Please install an embedding model.")
         
         # Optimized text splitter for faster processing
