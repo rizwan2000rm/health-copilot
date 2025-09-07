@@ -46,16 +46,15 @@ class ExerciseTemplate(BaseModel):
     """Exercise template model - represents a predefined exercise."""
     id: str = Field(..., description="Exercise template ID (e.g., '05293BCA')", min_length=1)
     title: str = Field(..., description="Exercise title/name", min_length=1)
-    category: Optional[str] = Field(None, description="Exercise category (e.g., 'Strength', 'Cardio')")
-    muscle_groups: Optional[List[str]] = Field(None, description="Target muscle groups")
-    equipment: Optional[str] = Field(None, description="Required equipment")
-    instructions: Optional[str] = Field(None, description="Exercise instructions")
-    tips: Optional[str] = Field(None, description="Exercise tips")
+    type: Optional[str] = Field(None, description="Exercise type (e.g., 'weight_reps')")
+    primary_muscle_group: Optional[str] = Field(None, description="Primary muscle group")
+    secondary_muscle_groups: Optional[List[str]] = Field(None, description="Secondary muscle groups")
+    is_custom: Optional[bool] = Field(None, description="Whether the exercise is custom")
     created_at: Optional[datetime] = Field(None, description="Creation timestamp")
     updated_at: Optional[datetime] = Field(None, description="Last update timestamp")
     
-    @validator('muscle_groups', pre=True)
-    def validate_muscle_groups(cls, v):
+    @validator('secondary_muscle_groups', pre=True)
+    def validate_secondary_muscle_groups(cls, v):
         if v is None:
             return []
         if isinstance(v, str):
@@ -107,20 +106,39 @@ class ExerciseHistoryResponse(HevyResponse):
 
 
 # Workout-related models
+class RepRange(BaseModel):
+    """Range of repetitions for a set (Routine sets)."""
+    start: Optional[int] = Field(None, description="Starting rep count for the range")
+    end: Optional[int] = Field(None, description="Ending rep count for the range")
+    
+    class Config:
+        extra = "forbid"
+
+
 class ExerciseSet(BaseModel):
     """Single exercise set."""
     id: Optional[str] = Field(None, description="Set ID")
-    weight: Optional[float] = Field(None, ge=0, le=APIConstants.MAX_WEIGHT_KG, description="Weight used in kg")
+    index: Optional[int] = Field(None, description="Index indicating the order of the set")
+    type: Optional[str] = Field("normal", description="The type of the set", pattern=r"^(warmup|normal|failure|dropset)$")
+    weight_kg: Optional[float] = Field(None, ge=0, le=APIConstants.MAX_WEIGHT_KG, description="Weight used in kg")
     reps: Optional[int] = Field(None, ge=0, le=APIConstants.MAX_REPS, description="Number of repetitions")
-    duration: Optional[int] = Field(None, ge=0, le=APIConstants.MAX_DURATION_SECONDS, description="Duration in seconds")
-    distance: Optional[float] = Field(None, ge=0, le=APIConstants.MAX_DISTANCE_METERS, description="Distance covered in meters")
-    rest_time: Optional[int] = Field(None, ge=0, le=APIConstants.MAX_DURATION_SECONDS, description="Rest time in seconds")
+    rep_range: Optional[RepRange] = Field(None, description="Range of reps for the set (Routine sets)")
+    distance_meters: Optional[float] = Field(None, ge=0, le=APIConstants.MAX_DISTANCE_METERS, description="Distance covered in meters")
+    duration_seconds: Optional[int] = Field(None, ge=0, le=APIConstants.MAX_DURATION_SECONDS, description="Duration in seconds")
+    rpe: Optional[float] = Field(None, ge=6, le=10, description="Rating of Perceived Exertion (allowed values: 6,7,7.5,8,8.5,9,9.5,10)")
+    custom_metric: Optional[float] = Field(None, description="Custom metric (used e.g. for steps/floors)")
     notes: Optional[str] = Field(None, description="Set notes")
     
-    @validator('weight', 'reps', 'duration', 'distance', 'rest_time', pre=True)
+    @validator('weight_kg', 'reps', 'duration_seconds', 'distance_meters', 'rpe', 'custom_metric', pre=True)
     def validate_positive_values(cls, v):
         if v is not None and v < 0:
             raise ValueError('Value must be non-negative')
+        return v
+    
+    @validator('rpe', pre=True)
+    def validate_rpe(cls, v):
+        if v is not None and v not in [6, 7, 7.5, 8, 8.5, 9, 9.5, 10]:
+            raise ValueError('RPE must be one of: 6, 7, 7.5, 8, 8.5, 9, 9.5, 10')
         return v
     
     class Config:
@@ -130,9 +148,10 @@ class ExerciseSet(BaseModel):
 class WorkoutExercise(BaseModel):
     """Exercise within a workout."""
     id: Optional[str] = Field(None, description="Exercise ID")
+    index: Optional[int] = Field(None, description="Index indicating the order of the exercise in the workout")
+    title: Optional[str] = Field(None, description="Title of the exercise")
     exercise_template_id: str = Field(..., description="Exercise template ID", min_length=1)
-    exercise_name: Optional[str] = Field(None, description="Exercise name")
-    order: Optional[int] = Field(None, ge=0, description="Exercise order in workout")
+    superset_id: Optional[int] = Field(None, description="The id of the superset that the exercise belongs to")
     sets: List[ExerciseSet] = Field(default_factory=list, description="Exercise sets")
     notes: Optional[str] = Field(None, description="Exercise notes")
     
@@ -143,11 +162,12 @@ class WorkoutExercise(BaseModel):
 class Workout(BaseModel):
     """Workout model."""
     id: Optional[str] = Field(None, description="Workout ID (UUID)")
-    name: Optional[str] = Field(None, description="Workout name")
-    date: Optional[datetime] = Field(None, description="Workout date")
-    notes: Optional[str] = Field(None, description="Workout notes")
+    title: Optional[str] = Field(None, description="Workout title")
+    description: Optional[str] = Field(None, description="Workout description")
+    start_time: Optional[datetime] = Field(None, description="ISO 8601 timestamp of when the workout was recorded to have started")
+    end_time: Optional[datetime] = Field(None, description="ISO 8601 timestamp of when the workout was recorded to have ended")
+    is_private: Optional[bool] = Field(None, description="Whether the workout is private")
     exercises: List[WorkoutExercise] = Field(default_factory=list, description="Workout exercises")
-    duration: Optional[int] = Field(None, ge=0, description="Total workout duration in seconds")
     created_at: Optional[datetime] = Field(None, description="Creation timestamp")
     updated_at: Optional[datetime] = Field(None, description="Last update timestamp")
     
@@ -185,13 +205,34 @@ class WorkoutCountResponse(HevyResponse):
         extra = "forbid"
 
 
-class WorkoutEvent(BaseModel):
-    """Workout event model."""
-    id: str = Field(..., description="Event ID", min_length=1)
-    workout_id: str = Field(..., description="Workout ID", min_length=1)
-    event_type: str = Field(..., description="Event type (e.g., 'created', 'updated')", min_length=1)
-    timestamp: datetime = Field(..., description="Event timestamp")
-    data: Optional[Dict[str, Any]] = Field(None, description="Event data")
+class UpdatedWorkout(BaseModel):
+    """Updated workout event model."""
+    type: str = Field(..., description="Indicates the type of the event (updated)")
+    workout: Workout = Field(..., description="The updated workout")
+    
+    class Config:
+        extra = "forbid"
+
+
+class DeletedWorkout(BaseModel):
+    """Deleted workout event model."""
+    type: str = Field(..., description="Indicates the type of the event (deleted)")
+    id: str = Field(..., description="The unique identifier of the deleted workout")
+    deleted_at: datetime = Field(..., description="A date string indicating when the workout was deleted")
+    
+    class Config:
+        extra = "forbid"
+
+
+# WorkoutEvent is now handled as a Union type directly in responses
+WorkoutEvent = Union[UpdatedWorkout, DeletedWorkout]
+
+
+class PaginatedWorkoutEvents(HevyResponse):
+    """Response model for paginated workout events."""
+    page: int = Field(..., description="The current page number")
+    page_count: int = Field(..., description="The total number of pages available")
+    events: List[WorkoutEvent] = Field(..., description="An array of workout events (either updated or deleted)")
     
     class Config:
         extra = "forbid"
@@ -212,11 +253,13 @@ class WorkoutEventsResponse(HevyResponse):
 class RoutineExercise(BaseModel):
     """Exercise within a routine."""
     id: Optional[str] = Field(None, description="Exercise ID")
+    index: Optional[int] = Field(None, description="Index indicating the order of the exercise in the routine")
+    title: Optional[str] = Field(None, description="Title of the exercise")
     exercise_template_id: str = Field(..., description="Exercise template ID", min_length=1)
-    exercise_name: Optional[str] = Field(None, description="Exercise name")
-    order: Optional[int] = Field(None, ge=0, description="Exercise order in routine")
+    superset_id: Optional[int] = Field(None, description="The id of the superset that the exercise belongs to")
+    rest_seconds: Optional[int] = Field(None, description="The rest time in seconds between sets of the exercise")
     sets: List[ExerciseSet] = Field(default_factory=list, description="Exercise sets")
-    notes: Optional[str] = Field(None, description="Exercise notes")
+    notes: Optional[str] = Field(None, description="Routine notes on the exercise")
     
     class Config:
         extra = "forbid"
@@ -260,8 +303,8 @@ class RoutinesResponse(HevyResponse):
 class RoutineFolder(BaseModel):
     """Routine folder model."""
     id: int = Field(..., description="Folder ID", ge=1)
+    index: Optional[int] = Field(None, description="The routine folder index. Describes the order of the folder in the list")
     title: str = Field(..., description="Folder title", min_length=1)
-    order: Optional[int] = Field(None, ge=0, description="Folder order")
     created_at: Optional[datetime] = Field(None, description="Creation timestamp")
     updated_at: Optional[datetime] = Field(None, description="Last update timestamp")
     
@@ -352,6 +395,9 @@ HevyAPIResponse = Union[
     Workout,
     WorkoutCountResponse,
     WorkoutEventsResponse,
+    PaginatedWorkoutEvents,
+    UpdatedWorkout,
+    DeletedWorkout,
     RoutinesResponse,
     Routine,
     RoutineFoldersResponse,
