@@ -1,4 +1,6 @@
 langchain
+langchain-openai
+openai
 langchain-ollama
 langchain-chroma
 chromadb
@@ -9,3 +11,5 @@ httpx
 langchain-mcp-adapters
 python-dotenv
 langgraph
+fastapi
+uvicorn

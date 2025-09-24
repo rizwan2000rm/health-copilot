@@ -41,6 +41,9 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "agentUrl": "${EXPO_PUBLIC_AGENT_URL}"
     }
   }
 }

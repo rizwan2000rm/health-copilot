@@ -1,19 +1,24 @@
 import type { ChatService } from "@/types/chat";
 
-class MockChatService implements ChatService {
+const AGENT_URL = process.env.EXPO_PUBLIC_AGENT_URL || "http://127.0.0.1:8000";
+
+class HttpChatService implements ChatService {
   async reply(prompt: string): Promise<string> {
-    await new Promise((r) => setTimeout(r, 650));
     const text = prompt.trim();
     if (!text) return "Could you share a bit more about your goal?";
-    const lower = text.toLowerCase();
-    if (lower.includes("workout") || lower.includes("plan")) {
-      return "Here's a simple plan: 3x/week full-body. Day A: Squat, Push-up, Row. Day B: Hinge, Overhead Press, Pull. 2–3 sets of 6–10 reps.";
+    try {
+      const res = await fetch(`${AGENT_URL}/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: text }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = (await res.json()) as { text?: string };
+      return data.text || "(no response)";
+    } catch (e) {
+      return "Sorry, I couldn't reach the agent. Is it running?";
     }
-    if (lower.includes("diet") || lower.includes("nutrition")) {
-      return "Focus on protein at each meal, plenty of fruits/veggies, and consistent hydration. Track 1–2 habits, not everything.";
-    }
-    return `You said: "${text}". How often do you train per week?`;
   }
 }
 
-export const chatService: ChatService = new MockChatService();
+export const chatService: ChatService = new HttpChatService();

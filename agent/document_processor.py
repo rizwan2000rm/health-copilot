@@ -4,8 +4,17 @@ from langchain_community.document_loaders import TextLoader, PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
-from langchain_ollama import OllamaEmbeddings
 from typing import List
+
+# Prefer OpenAI embeddings when available; fallback to Ollama
+try:
+    from langchain_openai import OpenAIEmbeddings  # type: ignore
+except Exception:
+    OpenAIEmbeddings = None  # type: ignore
+try:
+    from langchain_ollama import OllamaEmbeddings  # type: ignore
+except Exception:
+    OllamaEmbeddings = None  # type: ignore
 
 class DocumentProcessor:
     def __init__(self, persist_directory: str = "./chroma_db"):
@@ -13,19 +22,32 @@ class DocumentProcessor:
         self.persist_directory = persist_directory
         self.client = chromadb.PersistentClient(path=persist_directory)
         
-        # Try to initialize embeddings with fallback
-        try:
-            self.embeddings = OllamaEmbeddings(model="nomic-embed-text")
-            print("✅ Using nomic-embed-text for embeddings")
-        except Exception as e:
-            print(f"❌ Failed to load nomic-embed-text: {e}")
-            print("🔄 Falling back to alternative embedding model...")
+        # Try to initialize embeddings with preference for OpenAI
+        openai_key = os.getenv("OPENAI_API_KEY")
+        if openai_key and OpenAIEmbeddings is not None:
             try:
-                self.embeddings = OllamaEmbeddings(model="qwen2.5:3b")
-                print("✅ Using qwen2.5:3b for embeddings")
-            except Exception as e2:
-                print(f"❌ Failed to load qwen2.5:3b: {e2}")
-                raise Exception("No suitable embedding model available. Please install an embedding model.")
+                # Economical small embeddings model
+                self.embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+                print("✅ Using OpenAI text-embedding-3-small for embeddings")
+            except Exception as e:
+                print(f"❌ Failed to initialize OpenAI embeddings: {e}")
+                if OllamaEmbeddings is None:
+                    raise
+        if not hasattr(self, "embeddings"):
+            # Fallback to Ollama embeddings
+            if OllamaEmbeddings is None:
+                raise Exception("No suitable embedding model available. Configure OPENAI_API_KEY or install/run Ollama.")
+            try:
+                self.embeddings = OllamaEmbeddings(model="nomic-embed-text")
+                print("✅ Using Ollama nomic-embed-text for embeddings")
+            except Exception as e:
+                print(f"❌ Failed to load Ollama nomic-embed-text: {e}")
+                try:
+                    self.embeddings = OllamaEmbeddings(model="qwen2.5:3b")
+                    print("✅ Using Ollama qwen2.5:3b for embeddings")
+                except Exception as e2:
+                    print(f"❌ Failed to load Ollama qwen2.5:3b: {e2}")
+                    raise Exception("No suitable embedding model available. Please configure embeddings.")
         
         # Optimized text splitter for faster processing
         self.text_splitter = RecursiveCharacterTextSplitter(

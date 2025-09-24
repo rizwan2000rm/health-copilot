@@ -72,10 +72,10 @@ class MCPIntegration:
             else:
                 print("⚠️ HEVY_API_KEY not found in environment - MCP server may not work properly")
             
-            # Configure MCP server using uv as specified in the config
+            # Configure MCP server using uv (resolve path dynamically)
             server_config = {
                 "hevy": {
-                   "command": "/Users/rizwan/.local/bin/uv",
+                   "command": os.getenv("UV_BIN", "uv"),
                     "args": [
                         "--directory",
                         hevy_mcp_dir,

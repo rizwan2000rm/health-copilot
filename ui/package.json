@@ -3,11 +3,11 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "scripts": {
-    "start": "expo start",
+    "start": "EXPO_PUBLIC_AGENT_URL=${EXPO_PUBLIC_AGENT_URL:-http://127.0.0.1:8000} expo start",
     "reset-project": "node ./scripts/reset-project.js",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
-    "web": "expo start --web",
+    "android": "EXPO_PUBLIC_AGENT_URL=${EXPO_PUBLIC_AGENT_URL:-http://127.0.0.1:8000} expo start --android",
+    "ios": "EXPO_PUBLIC_AGENT_URL=${EXPO_PUBLIC_AGENT_URL:-http://127.0.0.1:8000} expo start --ios",
+    "web": "EXPO_PUBLIC_AGENT_URL=${EXPO_PUBLIC_AGENT_URL:-http://127.0.0.1:8000} expo start --web",
     "lint": "expo lint"
   },
   "dependencies": {
