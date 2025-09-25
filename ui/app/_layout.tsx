@@ -6,7 +6,8 @@ import { Ionicons } from "@expo/vector-icons";
 import "react-native-reanimated";
 import "../global.css";
 import Index from "./index";
-
+import React from "react";
+import { PortalHost } from "@rn-primitives/portal";
 const Drawer = createDrawerNavigator();
 
 const RootLayout = () => {
@@ -69,6 +70,7 @@ const RootLayout = () => {
           }}
         />
       </Drawer.Navigator>
+      <PortalHost />
     </SafeAreaProvider>
   );
 };
