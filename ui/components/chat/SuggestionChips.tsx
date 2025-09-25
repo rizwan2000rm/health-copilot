@@ -6,7 +6,7 @@ type Props = {
 };
 
 const defaultSuggestions = [
-  "Create an illustrationCreate an illustrationCreate an illustration",
+  "Create an illustration",
   "Suggest a recipe",
   "Plan a 20‑min workout",
   "Track my progress",

@@ -26,7 +26,9 @@ const InputBar = ({ value, onChange, canSend, onSend }: Props) => {
           unstyled
         />
 
-        <SendButton disabled={!canSend} onPress={onSend} size={32} />
+        <View className="self-end pb-2.5">
+          <SendButton disabled={!canSend} onPress={onSend} size={32} />
+        </View>
       </View>
     </View>
   );
