@@ -1,6 +1,7 @@
 import React from "react";
-import { TextInput, View } from "react-native";
+import { View } from "react-native";
 import SendButton from "@/components/chat/SendButton";
+import { Textarea } from "../ui/textarea";
 
 type Props = {
   value: string;
@@ -12,18 +13,19 @@ type Props = {
 const InputBar = ({ value, onChange, canSend, onSend }: Props) => {
   return (
     <View className="w-full p-4 pb-6 flex-row items-center gap-2">
-      <View className="flex-1 h-12 flex-row items-center bg-[#1f1f1f] px-3 pr-2 rounded-full border border-[#2a2a2a]">
-        <TextInput
+      <View className="flex-1 bg-[#1f1f1f] px-3 rounded-3xl border border-[#2a2a2a] flex-row items-center">
+        <Textarea
           value={value}
           onChangeText={onChange}
           placeholder="Ask your fitness coach..."
-          className="flex-1 py-0 text-base leading-5 pr-2 text-[#f8f7f3]"
+          className="flex-1 min-h-12 py-4 pr-3 text-base leading-5 text-[#f8f7f3]"
           placeholderTextColor="#9c9a92"
-          multiline={false}
-          returnKeyType="send"
+          returnKeyType="next"
           onSubmitEditing={onSend}
           submitBehavior="blurAndSubmit"
+          unstyled
         />
+
         <SendButton disabled={!canSend} onPress={onSend} size={32} />
       </View>
     </View>
