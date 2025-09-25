@@ -22,10 +22,10 @@ except Exception:
 class FitnessCoach:
     """AI Fitness Coach with MCP tools and knowledge base integration."""
     
-    def __init__(self, model_name: str = "gpt-4o-mini"):
+    def __init__(self, model_name: str = "gpt-5-nano"):
         """Initialize the AI Fitness Coach."""
         self.model_name = model_name
-        # Prefer hosted OpenAI GPT-4o mini; prepare fallback Ollama model
+        # Prefer hosted OpenAI GPT-5 nano; prepare fallback Ollama model
         self.model = None
         self.fallback_model = None
         openai_key = os.getenv("OPENAI_API_KEY")

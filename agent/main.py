@@ -44,7 +44,7 @@ class ChatResponse(BaseModel):
 @app.on_event("startup")
 async def startup_event():
     global _coach, _initialized
-    _coach = FitnessCoach(model_name=os.getenv("AGENT_MODEL", "gpt-4o-mini"))
+    _coach = FitnessCoach(model_name=os.getenv("AGENT_MODEL", "gpt-5-nano"))
     # Setup KB (sync)
     context_dir = os.path.join(os.path.dirname(__file__), "context")
     if os.path.exists(context_dir):
