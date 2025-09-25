@@ -12,20 +12,20 @@ type Props = {
 const InputBar = ({ value, onChange, canSend, onSend }: Props) => {
   return (
     <View className="w-full p-4 pb-6 flex-row items-center gap-2">
-      <View className="flex-1 flex-row items-center bg-[#1f1f1f] rounded-full px-4">
+      <View className="flex-1 h-12 flex-row items-center bg-[#1f1f1f] px-3 pr-2 rounded-full border border-[#2a2a2a]">
         <TextInput
           value={value}
           onChangeText={onChange}
           placeholder="Ask your fitness coach..."
-          className="flex-1 py-3 text-[#f8f7f3] placeholder:text-[#9c9a92]"
+          className="flex-1 py-0 text-base leading-5 pr-2 text-[#f8f7f3]"
           placeholderTextColor="#9c9a92"
           multiline={false}
           returnKeyType="send"
           onSubmitEditing={onSend}
-          blurOnSubmit={false}
+          submitBehavior="blurAndSubmit"
         />
+        <SendButton disabled={!canSend} onPress={onSend} size={32} />
       </View>
-      <SendButton disabled={!canSend} onPress={onSend} />
     </View>
   );
 };

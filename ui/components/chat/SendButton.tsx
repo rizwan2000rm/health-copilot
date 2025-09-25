@@ -5,11 +5,12 @@ import { Ionicons } from "@expo/vector-icons";
 type Props = {
   disabled?: boolean;
   onPress: () => void;
+  size?: number; // px
 };
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-const SendButton = ({ disabled, onPress }: Props) => {
+const SendButton = ({ disabled, onPress, size = 24 }: Props) => {
   const scale = useRef(new Animated.Value(1)).current;
 
   const onPressIn = () => {
@@ -31,14 +32,14 @@ const SendButton = ({ disabled, onPress }: Props) => {
       onPressOut={onPressOut}
       onPress={onPress}
       disabled={disabled}
-      style={{ transform: [{ scale }] }}
-      className={`h-12 w-12 rounded-full items-center justify-center ${
+      style={{ transform: [{ scale }], height: size, width: size }}
+      className={`rounded-full items-center justify-center ${
         disabled ? "bg-[#2a2a2a]" : "bg-[#2d6cdf]"
       }`}
     >
       <Ionicons
         name="send"
-        size={18}
+        size={Math.max(16, Math.floor(size * 0.38))}
         color={disabled ? "#777777" : "#ffffff"}
       />
     </AnimatedPressable>
