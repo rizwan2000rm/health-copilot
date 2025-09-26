@@ -38,7 +38,7 @@ const SendButton = ({ disabled, onPress, size = 24 }: Props) => {
       }`}
     >
       <Ionicons
-        name="send"
+        name="arrow-up"
         size={Math.max(16, Math.floor(size * 0.38))}
         color={disabled ? "#777777" : "#ffffff"}
       />
