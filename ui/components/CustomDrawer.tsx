@@ -1,32 +1,16 @@
-import React, { useState } from "react";
-import { View, Text, Pressable, ScrollView, TextInput } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import React from "react";
+import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Toggle } from "./ui/toggle";
-import clsx from "clsx";
+import SearchHeader from "./drawer/SearchHeader";
+import RecentChats from "./drawer/RecentChats";
+import DrawerFooter from "./drawer/DrawerFooter";
 
 interface CustomDrawerProps {
   navigation: any;
 }
 
 const CustomDrawer = ({ navigation }: CustomDrawerProps) => {
-  const [searchQuery, setSearchQuery] = useState("");
   const insets = useSafeAreaInsets();
-
-  const navigationItems = [
-    {
-      id: "health-coach",
-      title: "Health Coach",
-      icon: "chatbubble-outline",
-      isActive: true,
-    },
-    {
-      id: "settings",
-      title: "Settings",
-      icon: "settings-outline",
-      isActive: false,
-    },
-  ];
 
   const recentChats = [
     "International driving license, International driving license",
@@ -37,65 +21,30 @@ const CustomDrawer = ({ navigation }: CustomDrawerProps) => {
     "Maximizing Amex points value",
   ];
 
+  const handleSearch = (query: string) => {
+    // Handle search functionality
+    console.log("Search query:", query);
+  };
+
+  const handleChatSelect = (chat: string) => {
+    // Handle chat selection
+    console.log("Selected chat:", chat);
+  };
+
   return (
     <View className="flex-1 bg-black px-4" style={{ paddingTop: insets.top }}>
-      {/* Header with Search - Using InputBar styling */}
-      <View className="pb-4">
-        <View className="flex-row items-center gap-2">
-          <View className="flex-1 min-h-12 py-2 pr-2 bg-[#1f1f1f] rounded-3xl border border-[#2a2a2a] flex-row justify-center items-center">
-            <Ionicons
-              name="search"
-              size={16}
-              color="#9c9a92"
-              style={{ marginLeft: 12 }}
-            />
-            <TextInput
-              placeholder="Search"
-              placeholderTextColor="#9c9a92"
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              className="flex-1 mx-3 text-base leading-5 text-[#f8f7f3]"
-              returnKeyType="search"
-              onSubmitEditing={() => {
-                // Handle search
-                navigation.closeDrawer();
-              }}
-            />
-          </View>
-        </View>
-      </View>
+      <SearchHeader
+        onSearch={handleSearch}
+        onCloseDrawer={() => navigation.closeDrawer()}
+      />
 
-      {/* Recent Chats */}
-      <ScrollView className="flex-1 mt-1">
-        <View className="py-1">
-          {recentChats.map((chat, index) => (
-            <Pressable
-              key={index}
-              className="p-2"
-              onPress={() => {
-                // Handle chat selection
-                navigation.closeDrawer();
-              }}
-            >
-              <Text className="text-gray-300 text-lg line-clamp-1">{chat}</Text>
-            </Pressable>
-          ))}
-        </View>
-      </ScrollView>
+      <RecentChats
+        chats={recentChats}
+        onChatSelect={handleChatSelect}
+        onCloseDrawer={() => navigation.closeDrawer()}
+      />
 
-      {/* Footer */}
-      <View
-        className="py-3 border-t border-gray-800"
-        style={{ paddingBottom: insets.bottom + 12 }}
-      >
-        <View className="flex flex-row justify-center gap-2 items-center py-2 rounded-full">
-          <Ionicons name="barbell-outline" size={18} color="#a99be4" />
-
-          <Text className="text-[#a99be4] uppercase font-semibold">
-            Health Coach
-          </Text>
-        </View>
-      </View>
+      <DrawerFooter />
     </View>
   );
 };
