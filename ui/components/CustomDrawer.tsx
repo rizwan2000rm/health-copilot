@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import { View, Text, Pressable, ScrollView, TextInput } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Toggle } from "./ui/toggle";
+import clsx from "clsx";
 
 interface CustomDrawerProps {
   navigation: any;
@@ -27,12 +29,12 @@ const CustomDrawer = ({ navigation }: CustomDrawerProps) => {
   ];
 
   const recentChats = [
-    "International driving licens...",
+    "International driving license, International driving license",
     "Akbar travel flight discounts",
-    "Makkah hotel recommenda...",
+    "Makkah hotel recommendation",
     "Room upgrade explanation",
     "Grain calorie comparison",
-    "Maximizing Amex points va...",
+    "Maximizing Amex points value",
   ];
 
   return (
@@ -63,81 +65,36 @@ const CustomDrawer = ({ navigation }: CustomDrawerProps) => {
         </View>
       </View>
 
-      {/* Navigation Items - Exact ChatGPT styling */}
-      <View className="px-1 py-1">
-        {navigationItems.map((item) => (
-          <Pressable
-            key={item.id}
-            className={`flex-row items-center py-2 px-3 rounded-lg mb-1 ${
-              item.isActive ? "bg-gray-800" : ""
-            }`}
-            onPress={() => {
-              if (item.id === "chatgpt") {
-                navigation.navigate("Home");
-              }
-              navigation.closeDrawer();
-            }}
-          >
-            {item.id === "chatgpt" ? (
-              <View className="w-5 h-5 bg-white rounded-sm items-center justify-center mr-3">
-                <Text className="text-black font-bold text-xs">∞</Text>
-              </View>
-            ) : (
-              <Ionicons
-                name={item.icon as any}
-                size={16}
-                color={item.isActive ? "#fff" : "#666"}
-                style={{ marginRight: 12 }}
-              />
-            )}
-            <Text
-              className={`text-sm ${
-                item.isActive ? "text-white font-medium" : "text-gray-400"
-              }`}
-            >
-              {item.title}
-            </Text>
-            {item.id === "gpts" && (
-              <Ionicons
-                name="chevron-forward"
-                size={12}
-                color="#666"
-                style={{ marginLeft: "auto" }}
-              />
-            )}
-          </Pressable>
-        ))}
-      </View>
-
-      {/* Recent Chats - Exact ChatGPT styling */}
-      <ScrollView className="flex-1 px-1 mt-1">
+      {/* Recent Chats */}
+      <ScrollView className="flex-1 mt-1">
         <View className="py-1">
           {recentChats.map((chat, index) => (
             <Pressable
               key={index}
-              className="py-2 px-3 rounded-lg"
+              className="p-2"
               onPress={() => {
                 // Handle chat selection
                 navigation.closeDrawer();
               }}
             >
-              <Text className="text-gray-300 text-sm">{chat}</Text>
+              <Text className="text-gray-300 text-lg line-clamp-1">{chat}</Text>
             </Pressable>
           ))}
         </View>
       </ScrollView>
 
-      {/* User Profile Section - Exact ChatGPT styling */}
+      {/* Footer */}
       <View
-        className="px-3 py-3 border-t border-gray-800"
+        className="py-3 border-t border-gray-800"
         style={{ paddingBottom: insets.bottom + 12 }}
       >
-        <Pressable className="flex-row items-center py-1">
-          <View className="w-6 h-6 bg-red-500 rounded-full items-center justify-center mr-3">
-            <Text className="text-white font-semibold text-xs">R</Text>
-          </View>
-          <Text className="text-white font-medium text-sm">Rizwan Memon</Text>
-        </Pressable>
+        <View className="flex flex-row justify-center gap-2 items-center py-2 rounded-full">
+          <Ionicons name="barbell-outline" size={18} color="#a99be4" />
+
+          <Text className="text-[#a99be4] uppercase font-semibold">
+            Health Coach
+          </Text>
+        </View>
       </View>
     </View>
   );

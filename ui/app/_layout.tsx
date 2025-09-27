@@ -27,7 +27,7 @@ const RootLayout = () => {
               <Ionicons name="barbell-outline" size={18} color="#a99be4" />
 
               <Text className="text-[#a99be4] uppercase font-semibold">
-                Health Copilot
+                Health Coach
               </Text>
             </View>
           ),
