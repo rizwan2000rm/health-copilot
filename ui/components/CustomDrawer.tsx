@@ -44,7 +44,7 @@ const CustomDrawer = ({ navigation }: CustomDrawerProps) => {
         onCloseDrawer={() => navigation.closeDrawer()}
       />
 
-      <DrawerFooter />
+      <DrawerFooter navigation={navigation} />
     </View>
   );
 };

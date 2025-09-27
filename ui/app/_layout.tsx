@@ -6,6 +6,7 @@ import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import "react-native-reanimated";
 import "../global.css";
 import Index from "./index";
+import SettingsScreen from "./settings";
 import React from "react";
 import { PortalHost } from "@rn-primitives/portal";
 import CustomDrawer from "@/components/CustomDrawer";
@@ -42,6 +43,7 @@ const RootLayout = () => {
           ),
           headerRight: () => (
             <Pressable
+              onPress={() => navigation.navigate("Home")}
               accessibilityLabel="Open camera"
               className="h-9 w-9 items-center justify-center mr-2"
             >
@@ -59,6 +61,13 @@ const RootLayout = () => {
           component={Index}
           options={{
             title: "",
+          }}
+        />
+        <Drawer.Screen
+          name="Settings"
+          component={SettingsScreen}
+          options={{
+            title: "Settings",
           }}
         />
       </Drawer.Navigator>

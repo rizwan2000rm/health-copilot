@@ -6,6 +6,7 @@ class HttpChatService implements ChatService {
   async reply(prompt: string): Promise<string> {
     const text = prompt.trim();
     if (!text) return "Could you share a bit more about your goal?";
+
     try {
       const res = await fetch(`${AGENT_URL}/chat`, {
         method: "POST",
