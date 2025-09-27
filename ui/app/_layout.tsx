@@ -2,18 +2,20 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { createDrawerNavigator } from "@react-navigation/drawer";
 import { DrawerActions } from "@react-navigation/native";
 import { Pressable, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import "react-native-reanimated";
 import "../global.css";
 import Index from "./index";
 import React from "react";
 import { PortalHost } from "@rn-primitives/portal";
+import CustomDrawer from "@/components/CustomDrawer";
 const Drawer = createDrawerNavigator();
 
 const RootLayout = () => {
   return (
     <SafeAreaProvider>
       <Drawer.Navigator
+        drawerContent={(props) => <CustomDrawer {...props} />}
         screenOptions={({ navigation }) => ({
           headerShown: true,
           headerStyle: {
@@ -43,23 +45,13 @@ const RootLayout = () => {
               accessibilityLabel="Open camera"
               className="h-9 w-9 items-center justify-center mr-2"
             >
-              <Ionicons name="scan" size={22} color="#eaeaea" />
+              <MaterialCommunityIcons
+                name="chat-plus"
+                size={24}
+                color="#eaeaea"
+              />
             </Pressable>
           ),
-          drawerStyle: {
-            backgroundColor: "#000000",
-          },
-          drawerActiveTintColor: "#ffffff",
-          drawerInactiveTintColor: "#666666",
-          drawerLabelStyle: {
-            color: "#ffffff",
-          },
-          drawerContentContainerStyle: {
-            backgroundColor: "#000000",
-          },
-          drawerContentStyle: {
-            backgroundColor: "#000000",
-          },
         })}
       >
         <Drawer.Screen

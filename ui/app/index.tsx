@@ -5,7 +5,7 @@ import "../global.css";
 
 const Index = () => {
   return (
-    <View className="flex-1 bg-black text-blue-400">
+    <View className="flex-1 bg-black">
       <Chat />
     </View>
   );
