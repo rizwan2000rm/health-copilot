@@ -159,7 +159,6 @@ export function useChat(initialChatId?: string, onChatSaved?: () => void) {
 
     try {
       await chatStorage.deleteChat(currentChatId);
-      await searchIndexManager.removeChatFromIndex(currentChatId);
 
       // Create new chat
       await createNewChat();
