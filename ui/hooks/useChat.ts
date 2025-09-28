@@ -27,6 +27,16 @@ export function useChat(initialChatId?: string, onChatSaved?: () => void) {
   const scrollRef = useRef<ScrollView>(null);
   const autoSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Sync currentChatId with initialChatId changes
+  useEffect(() => {
+    setCurrentChatId(initialChatId || null);
+
+    // Reset to welcome message when starting a new chat
+    if (!initialChatId) {
+      createNewChat();
+    }
+  }, [initialChatId]);
+
   // Initialize storage and load chat if ID provided
   useEffect(() => {
     const initializeChat = async () => {
