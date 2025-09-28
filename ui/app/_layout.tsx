@@ -1,3 +1,4 @@
+import "react-native-get-random-values";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { createDrawerNavigator } from "@react-navigation/drawer";
 import { DrawerActions } from "@react-navigation/native";
@@ -7,16 +8,40 @@ import "react-native-reanimated";
 import "../global.css";
 import Index from "./index";
 import SettingsScreen from "./settings";
-import React from "react";
+import React, { useState } from "react";
 import { PortalHost } from "@rn-primitives/portal";
 import CustomDrawer from "@/components/CustomDrawer";
+import { ChatSession } from "@/types/chatHistory";
 const Drawer = createDrawerNavigator();
 
 const RootLayout = () => {
+  const [currentChatId, setCurrentChatId] = useState<string | null>(null);
+  const [drawerRefreshKey, setDrawerRefreshKey] = useState(0);
+
+  const handleChatSelect = (chat: ChatSession) => {
+    setCurrentChatId(chat.id);
+  };
+
+  const handleNewChat = () => {
+    setCurrentChatId(null);
+  };
+
+  const handleChatSaved = () => {
+    // Trigger drawer refresh by updating the key
+    setDrawerRefreshKey((prev) => prev + 1);
+  };
+
   return (
     <SafeAreaProvider>
       <Drawer.Navigator
-        drawerContent={(props) => <CustomDrawer {...props} />}
+        drawerContent={(props) => (
+          <CustomDrawer
+            {...props}
+            key={drawerRefreshKey}
+            currentChatId={currentChatId}
+            onChatSelect={handleChatSelect}
+          />
+        )}
         screenOptions={({ navigation }) => ({
           headerShown: true,
           headerStyle: {
@@ -43,8 +68,8 @@ const RootLayout = () => {
           ),
           headerRight: () => (
             <Pressable
-              onPress={() => navigation.navigate("Home")}
-              accessibilityLabel="Open camera"
+              onPress={handleNewChat}
+              accessibilityLabel="New chat"
               className="h-9 w-9 items-center justify-center mr-2"
             >
               <MaterialCommunityIcons
@@ -58,11 +83,18 @@ const RootLayout = () => {
       >
         <Drawer.Screen
           name="Home"
-          component={Index}
           options={{
             title: "",
           }}
-        />
+        >
+          {(props) => (
+            <Index
+              {...props}
+              currentChatId={currentChatId}
+              onChatSaved={handleChatSaved}
+            />
+          )}
+        </Drawer.Screen>
         <Drawer.Screen
           name="Settings"
           component={SettingsScreen}

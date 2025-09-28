@@ -5,7 +5,12 @@ import InputBar from "@/components/chat/InputBar";
 import { useChat } from "@/hooks/useChat";
 import SuggestionChips from "@/components/chat/SuggestionChips";
 
-const Chat = () => {
+interface ChatProps {
+  currentChatId?: string | null;
+  onChatSaved?: () => void;
+}
+
+const Chat = ({ currentChatId, onChatSaved }: ChatProps) => {
   const {
     messages,
     input,
@@ -15,7 +20,7 @@ const Chat = () => {
     handleSend,
     scrollRef,
     scrollToBottom,
-  } = useChat();
+  } = useChat(currentChatId || undefined, onChatSaved);
 
   return (
     <KeyboardAvoidingView
