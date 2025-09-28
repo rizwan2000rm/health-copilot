@@ -75,6 +75,14 @@ async def chat_get(prompt: str = "Hello!"):
     return {"text": reply}
 
 
+@app.post("/weekly-plan", response_model=ChatResponse)
+async def weekly_plan():
+    if _coach is None:
+        return ChatResponse(text="Agent not initialized")
+    reply = await _coach.generate_weekly_plan()
+    return ChatResponse(text=reply)
+
+
 @app.get("/stats")
 async def stats():
     if _coach is None:

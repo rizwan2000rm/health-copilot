@@ -188,49 +188,57 @@ export function useChat(initialChatId?: string, onChatSaved?: () => void) {
     [input, isTyping, isLoading]
   );
 
-  const handleSend = useCallback(async () => {
-    const text = input.trim();
-    if (!text || isTyping) return;
+  const hasUserMessages = useMemo(
+    () => messages.some((message) => message.role === "user"),
+    [messages]
+  );
 
-    setInput("");
-    await Haptics.selectionAsync();
+  const handleSend = useCallback(
+    async (messageText?: string) => {
+      const text = messageText || input.trim();
+      if (!text || isTyping) return;
 
-    const userMessage: ChatMessage = {
-      id: `${Date.now()}-user`,
-      role: "user",
-      text,
-      timestamp: new Date(),
-    };
+      setInput("");
+      await Haptics.selectionAsync();
 
-    setMessages((prev) => [...prev, userMessage]);
-    setHasUnsavedChanges(true);
-    setIsTyping(true);
-
-    try {
-      const aiText = await chatService.reply(text);
-      const aiMessage: ChatMessage = {
-        id: `${Date.now()}-ai`,
-        role: "assistant",
-        text: aiText,
+      const userMessage: ChatMessage = {
+        id: `${Date.now()}-user`,
+        role: "user",
+        text,
         timestamp: new Date(),
       };
 
-      setMessages((prev) => [...prev, aiMessage]);
+      setMessages((prev) => [...prev, userMessage]);
       setHasUnsavedChanges(true);
-    } catch (e) {
-      const aiMessage: ChatMessage = {
-        id: `${Date.now()}-aierr`,
-        role: "assistant",
-        text: "Sorry, I ran into a problem. Please try again.",
-        timestamp: new Date(),
-      };
+      setIsTyping(true);
 
-      setMessages((prev) => [...prev, aiMessage]);
-      setHasUnsavedChanges(true);
-    } finally {
-      setIsTyping(false);
-    }
-  }, [input, isTyping]);
+      try {
+        const aiText = await chatService.reply(text);
+        const aiMessage: ChatMessage = {
+          id: `${Date.now()}-ai`,
+          role: "assistant",
+          text: aiText,
+          timestamp: new Date(),
+        };
+
+        setMessages((prev) => [...prev, aiMessage]);
+        setHasUnsavedChanges(true);
+      } catch (e) {
+        const aiMessage: ChatMessage = {
+          id: `${Date.now()}-aierr`,
+          role: "assistant",
+          text: "Sorry, I ran into a problem. Please try again.",
+          timestamp: new Date(),
+        };
+
+        setMessages((prev) => [...prev, aiMessage]);
+        setHasUnsavedChanges(true);
+      } finally {
+        setIsTyping(false);
+      }
+    },
+    [input, isTyping]
+  );
 
   // Manual save function
   const saveChat = useCallback(async () => {
@@ -252,6 +260,7 @@ export function useChat(initialChatId?: string, onChatSaved?: () => void) {
     currentChatId,
     isLoading,
     hasUnsavedChanges,
+    hasUserMessages,
 
     // New functions
     loadChat,

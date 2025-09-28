@@ -20,6 +20,7 @@ const Chat = ({ currentChatId, onChatSaved }: ChatProps) => {
     handleSend,
     scrollRef,
     scrollToBottom,
+    hasUserMessages,
   } = useChat(currentChatId || undefined, onChatSaved);
 
   return (
@@ -43,7 +44,7 @@ const Chat = ({ currentChatId, onChatSaved }: ChatProps) => {
         >
           <MessageList messages={messages} isTyping={isTyping} />
         </ScrollView>
-        <SuggestionChips onPick={setInput} />
+        {!hasUserMessages && <SuggestionChips onSend={handleSend} />}
       </View>
       <InputBar
         value={input}

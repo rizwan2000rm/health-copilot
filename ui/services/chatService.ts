@@ -7,6 +7,11 @@ class HttpChatService implements ChatService {
     const text = prompt.trim();
     if (!text) return "Could you share a bit more about your goal?";
 
+    // Check if this is a weekly plan request
+    if (text.toLowerCase().includes("plan my next week workouts")) {
+      return this.generateWeeklyPlan();
+    }
+
     try {
       const res = await fetch(`${AGENT_URL}/chat`, {
         method: "POST",
@@ -18,6 +23,20 @@ class HttpChatService implements ChatService {
       return data.text || "(no response)";
     } catch (e) {
       return "Sorry, I couldn't reach the agent. Is it running?";
+    }
+  }
+
+  async generateWeeklyPlan(): Promise<string> {
+    try {
+      const res = await fetch(`${AGENT_URL}/weekly-plan`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = (await res.json()) as { text?: string };
+      return data.text || "(no response)";
+    } catch (e) {
+      return "Sorry, I couldn't reach the agent to generate your weekly plan. Is it running?";
     }
   }
 }
