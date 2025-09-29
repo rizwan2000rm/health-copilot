@@ -5,22 +5,44 @@ Core AI coaching logic with MCP tools and knowledge base integration.
 """
 
 import asyncio
+import os
 from typing import Dict, Any
-from langchain_ollama import ChatOllama
+from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
 from knowledge import KnowledgeBase
 from mcp_integration import MCPIntegration
+try:
+    from langchain_ollama import ChatOllama  # Fallback if OpenAI not configured
+except Exception:
+    ChatOllama = None  # type: ignore
 
 
 class FitnessCoach:
     """AI Fitness Coach with MCP tools and knowledge base integration."""
     
-    def __init__(self, model_name: str = "qwen2.5:3b"):
+    def __init__(self, model_name: str = "gpt-5-nano"):
         """Initialize the AI Fitness Coach."""
         self.model_name = model_name
-        self.model = ChatOllama(model=model_name, temperature=0.7)
+        # Prefer hosted OpenAI GPT-5 nano; prepare fallback Ollama model
+        self.model = None
+        self.fallback_model = None
+        openai_key = os.getenv("OPENAI_API_KEY")
+        if openai_key:
+            try:
+                self.model = ChatOpenAI(model=model_name, temperature=0.7)
+            except Exception as e:
+                print(f"⚠️ Failed to initialize OpenAI model: {e}")
+        if ChatOllama is not None:
+            try:
+                self.fallback_model = ChatOllama(model="qwen2.5:3b", temperature=0.7)
+            except Exception as e:
+                print(f"⚠️ Failed to initialize Ollama fallback model: {e}")
+        if self.model is None and self.fallback_model is not None:
+            self.model = self.fallback_model
+        if self.model is None:
+            raise RuntimeError("No LLM available. Set OPENAI_API_KEY or install/run Ollama.")
         self.knowledge_base = KnowledgeBase()
         self.mcp = MCPIntegration()
         self.agent = None
@@ -86,10 +108,24 @@ Provide comprehensive, actionable fitness guidance.
     
     async def get_response(self, user_input: str) -> str:
         """Get a response from the AI coach."""
+        # Try to build RAG context even when using the agent
+        context_text = ""
+        retriever = self.knowledge_base.get_retriever()
+        if retriever:
+            try:
+                docs = retriever.invoke(user_input)
+                if docs:
+                    context_text = self.knowledge_base.format_docs(docs)
+            except Exception as e:
+                print(f"⚠️ Error retrieving context: {e}")
+
         if self.agent:
             try:
                 # Use agent with MCP tools
-                response = await self.agent.ainvoke({"messages": [("user", user_input)]})
+                agent_input = user_input
+                if context_text:
+                    agent_input = f"RESEARCH CONTEXT:\n{context_text}\n\nUSER REQUEST: {user_input}"
+                response = await self.agent.ainvoke({"messages": [("user", agent_input)]})
                 if isinstance(response, dict) and "messages" in response:
                     messages = response["messages"]
                     if messages and hasattr(messages[-1], 'content'):
@@ -100,18 +136,36 @@ Provide comprehensive, actionable fitness guidance.
                 # Fall through to fallback
         
         # Fallback to basic chain with knowledge base
-        retriever = self.knowledge_base.get_retriever()
-        if retriever:
-            chain = (
-                {"context": retriever | self.knowledge_base.format_docs, "input": RunnablePassthrough()}
-                | self.prompt
-                | self.model
-                | StrOutputParser()
-            )
-            return chain.invoke(user_input)
-        else:
-            chain = self.prompt | self.model | StrOutputParser()
-            return chain.invoke({"input": user_input})
+        def try_invoke_chain(use_context: bool, llm_model):
+            if use_context and retriever:
+                chain = (
+                    {"context": retriever | self.knowledge_base.format_docs, "input": RunnablePassthrough()}
+                    | self.prompt
+                    | llm_model
+                    | StrOutputParser()
+                )
+                return chain.invoke(user_input)
+            else:
+                chain = self.prompt | llm_model | StrOutputParser()
+                return chain.invoke({"input": user_input})
+
+        # First try with current model and context
+        try:
+            return try_invoke_chain(True, self.model)
+        except Exception as e1:
+            print(f"⚠️ RAG+LLM failed: {e1}. Trying without context...")
+            # Try without context
+            try:
+                return try_invoke_chain(False, self.model)
+            except Exception as e2:
+                print(f"⚠️ LLM without context failed: {e2}. Trying fallback model...")
+                if self.fallback_model is not None:
+                    # Try fallback with no context (fastest path)
+                    try:
+                        return try_invoke_chain(False, self.fallback_model)
+                    except Exception as e3:
+                        print(f"⚠️ Fallback model failed: {e3}")
+                return "Sorry, I'm temporarily unavailable due to rate limits. Please try again shortly."
     
     
     async def generate_weekly_plan(self) -> str:

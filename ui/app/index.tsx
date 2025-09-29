@@ -3,10 +3,15 @@ import Chat from "@/components/Chat";
 
 import "../global.css";
 
-const Index = () => {
+interface IndexProps {
+  currentChatId?: string | null;
+  onChatSaved?: () => void;
+}
+
+const Index = ({ currentChatId, onChatSaved }: IndexProps) => {
   return (
-    <View className="flex-1 bg-black text-blue-400">
-      <Chat />
+    <View className="flex-1 bg-black">
+      <Chat currentChatId={currentChatId} onChatSaved={onChatSaved} />
     </View>
   );
 };
