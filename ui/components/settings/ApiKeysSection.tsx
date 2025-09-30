@@ -5,7 +5,6 @@ import { useSettings } from "@/hooks/useSettings";
 import { supportedApiServices } from "@/lib/settingsDefaults";
 
 interface ApiKeyCardProps {
-  serviceId: string;
   serviceName: string;
   description: string;
   icon: string;
@@ -13,12 +12,10 @@ interface ApiKeyCardProps {
   currentKey?: string;
   isValid?: boolean;
   onSave: (key: string) => Promise<void>;
-  onValidate: (key: string) => Promise<boolean>;
   onDelete: () => Promise<void>;
 }
 
 const ApiKeyCard: React.FC<ApiKeyCardProps> = ({
-  serviceId,
   serviceName,
   description,
   icon,
@@ -26,7 +23,6 @@ const ApiKeyCard: React.FC<ApiKeyCardProps> = ({
   currentKey,
   isValid = false,
   onSave,
-  onValidate,
   onDelete,
 }) => {
   const [key, setKey] = useState(currentKey || "");
@@ -144,7 +140,6 @@ const ApiKeysSection: React.FC = () => {
       {supportedApiServices.map((service) => (
         <ApiKeyCard
           key={service.id}
-          serviceId={service.id}
           serviceName={service.name}
           description={service.description}
           icon={service.icon}
@@ -152,7 +147,6 @@ const ApiKeysSection: React.FC = () => {
           currentKey={settings.apiKeys[service.id]?.key}
           isValid={settings.apiKeys[service.id]?.isValid}
           onSave={(key) => saveApiKey(service.id, key)}
-          onValidate={(key) => validateApiKey(service.id, key)}
           onDelete={() => deleteApiKey(service.id)}
         />
       ))}

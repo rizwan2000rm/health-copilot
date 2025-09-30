@@ -21,26 +21,28 @@ const HealthImportSection = () => {
   };
 
   return (
-    <View className="bg-zinc-900 rounded-lg p-4 border border-zinc-800">
-      <Text className="text-white text-lg font-semibold mb-2">Health Data</Text>
-      <Text className="text-zinc-300 mb-4">
-        Import your Apple Health export (.zip). We'll parse steps, active and
-        basal energy, and sleep and store daily summaries locally.
-      </Text>
-      <Pressable
-        onPress={onImport}
-        className="bg-indigo-600 rounded-lg px-4 py-3 items-center justify-center"
-        disabled={busy}
-      >
-        {busy ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text className="text-white font-medium">
-            Import Health Export (.zip)
-          </Text>
-        )}
-      </Pressable>
-    </View>
+    <>
+      <Text className="text-gray-400 text-sm mb-4">Health Data</Text>
+      <View className="bg-gray-900 rounded-lg p-4 mb-4">
+        <Text className="text-gray-400 text-sm mb-4">
+          Import your Apple Health export (.zip). We'll parse steps, active and
+          basal energy, and sleep and store daily summaries locally.
+        </Text>
+        <Pressable
+          onPress={onImport}
+          className={`rounded-lg px-4 py-3 items-center justify-center ${busy ? "bg-gray-700" : "bg-[#a99be4]"}`}
+          disabled={busy}
+        >
+          {busy ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text className="text-white font-medium">
+              Import Health Export (.zip)
+            </Text>
+          )}
+        </Pressable>
+      </View>
+    </>
   );
 };
 

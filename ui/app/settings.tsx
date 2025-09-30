@@ -27,8 +27,8 @@ const SettingsScreen = () => {
         )}
 
         <View className="space-y-8">
-          <HealthImportSection />
           <ApiKeysSection />
+          <HealthImportSection />
           <AboutSection />
         </View>
       </ScrollView>
