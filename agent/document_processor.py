@@ -131,9 +131,15 @@ class DocumentProcessor:
             print(f"Error loading existing vectorstore: {e}")
             return None
     
-    def get_retriever(self, vectorstore, k: int = 4):
-        """Get a retriever from the vectorstore."""
-        return vectorstore.as_retriever(search_kwargs={"k": k})
+    def get_retriever(self, vectorstore, k: int = 6, search_type: str = "mmr", fetch_k: int = 20):
+        """Get a retriever from the vectorstore.
+
+        Uses Max Marginal Relevance (MMR) by default to improve diversity of results.
+        """
+        search_kwargs = {"k": k}
+        if search_type == "mmr":
+            search_kwargs = {"k": k, "fetch_k": fetch_k}
+        return vectorstore.as_retriever(search_type=search_type, search_kwargs=search_kwargs)
     
     def setup_knowledge_base(self, context_directory: str, force_refresh: bool = False):
         """Set up the complete knowledge base from context directory."""
