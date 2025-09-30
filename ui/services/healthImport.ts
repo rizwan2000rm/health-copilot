@@ -1,0 +1,150 @@
+import * as DocumentPicker from "expo-document-picker";
+import * as FileSystem from "expo-file-system";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { unzipSync, strFromU8 } from "fflate";
+import { toByteArray } from "base64-js";
+import { XMLParser } from "fast-xml-parser";
+
+const STORAGE_PREFIX = "health_daily:";
+const LAST_SYNCED_KEY = "health_last_synced_at";
+
+type DailySummary = {
+  steps: number;
+  active_kcal: number;
+  basal_kcal: number;
+  sleep_minutes: number;
+};
+
+function toISODateLocal(date: Date): string {
+  const y = date.getFullYear();
+  const m = `${date.getMonth() + 1}`.padStart(2, "0");
+  const d = `${date.getDate()}`.padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+export async function importHealthZip(): Promise<
+  { days: number } | { error: string }
+> {
+  const pick = await DocumentPicker.getDocumentAsync({
+    type: "application/zip",
+    multiple: false,
+    copyToCacheDirectory: true,
+  });
+  if (pick.canceled || !pick.assets?.[0]) return { error: "Canceled" };
+
+  const asset = pick.assets[0];
+  const fileUri = asset.uri;
+  try {
+    const bin = await FileSystem.readAsStringAsync(fileUri, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+    const zipData = toByteArray(bin);
+    const files = unzipSync(zipData);
+
+    // Apple export contains export.xml at root
+    const exportXmlEntry = Object.keys(files).find((k) =>
+      k.endsWith("export.xml")
+    );
+    if (!exportXmlEntry) return { error: "export.xml not found in zip" };
+
+    const xml = strFromU8(files[exportXmlEntry]);
+    const parser = new XMLParser({
+      ignoreAttributes: false,
+      attributeNamePrefix: "",
+      parseAttributeValue: true,
+      trimValues: true,
+    });
+
+    const stepsByDay: Record<string, number> = {};
+    const activeByDay: Record<string, number> = {};
+    const basalByDay: Record<string, number> = {};
+    const sleepByDay: Record<string, number> = {};
+
+    const root = parser.parse(xml);
+    const recordsRaw = root?.HealthData?.Record ?? [];
+    const records: any[] = Array.isArray(recordsRaw)
+      ? recordsRaw
+      : [recordsRaw];
+
+    for (const rec of records) {
+      const type = rec?.type as string | undefined;
+      const startDateStr = rec?.startDate as string | undefined;
+      if (!type || !startDateStr) continue;
+      const endDateStr = rec?.endDate as string | undefined;
+      const valueNum =
+        typeof rec?.value === "number"
+          ? rec.value
+          : parseFloat(rec?.value ?? "0");
+
+      const start = new Date(startDateStr);
+      const end = endDateStr ? new Date(endDateStr) : start;
+      const value = isNaN(valueNum) ? 0 : valueNum;
+
+      if (type === "HKQuantityTypeIdentifierStepCount") {
+        const day = toISODateLocal(start);
+        stepsByDay[day] = (stepsByDay[day] || 0) + value;
+        continue;
+      }
+      if (type === "HKQuantityTypeIdentifierActiveEnergyBurned") {
+        const day = toISODateLocal(start);
+        activeByDay[day] = (activeByDay[day] || 0) + value;
+        continue;
+      }
+      if (type === "HKQuantityTypeIdentifierBasalEnergyBurned") {
+        const day = toISODateLocal(start);
+        basalByDay[day] = (basalByDay[day] || 0) + value;
+        continue;
+      }
+      if (type === "HKCategoryTypeIdentifierSleepAnalysis") {
+        // Non-zero value indicates asleep/stage; treat as asleep
+        if (value === 0) continue;
+        let cursor = new Date(start);
+        while (cursor < end) {
+          const dayEnd = new Date(
+            cursor.getFullYear(),
+            cursor.getMonth(),
+            cursor.getDate(),
+            23,
+            59,
+            59,
+            999
+          );
+          const segStart = cursor;
+          const segEnd = end < dayEnd ? end : dayEnd;
+          const minutes = Math.max(
+            0,
+            (segEnd.getTime() - segStart.getTime()) / 60000
+          );
+          const dayISO = toISODateLocal(segStart);
+          sleepByDay[dayISO] = (sleepByDay[dayISO] || 0) + minutes;
+          cursor = new Date(dayEnd.getTime() + 1);
+        }
+      }
+    }
+
+    const allDays = new Set<string>([
+      ...Object.keys(stepsByDay),
+      ...Object.keys(activeByDay),
+      ...Object.keys(basalByDay),
+      ...Object.keys(sleepByDay),
+    ]);
+
+    for (const day of allDays) {
+      const summary: DailySummary = {
+        steps: stepsByDay[day] ?? 0,
+        active_kcal: activeByDay[day] ?? 0,
+        basal_kcal: basalByDay[day] ?? 0,
+        sleep_minutes: sleepByDay[day] ?? 0,
+      };
+      await AsyncStorage.setItem(
+        `${STORAGE_PREFIX}${day}`,
+        JSON.stringify(summary)
+      );
+    }
+    await AsyncStorage.setItem(LAST_SYNCED_KEY, new Date().toISOString());
+
+    return { days: allDays.size };
+  } catch (e: any) {
+    return { error: e?.message || "Import failed" };
+  }
+}
