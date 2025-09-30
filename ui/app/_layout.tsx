@@ -68,7 +68,10 @@ const RootLayout = () => {
           ),
           headerRight: () => (
             <Pressable
-              onPress={handleNewChat}
+              onPress={() => {
+                handleNewChat();
+                navigation.navigate("Home");
+              }}
               accessibilityLabel="New chat"
               className="h-9 w-9 items-center justify-center mr-2"
             >

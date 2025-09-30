@@ -40,6 +40,7 @@ const CustomDrawer = ({
     if (onChatSelect) {
       onChatSelect(chat);
     }
+    navigation.navigate("Home");
     navigation.closeDrawer();
   };
 
