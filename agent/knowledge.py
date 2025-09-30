@@ -45,8 +45,8 @@ class KnowledgeBase:
             print("❌ Failed to set up knowledge base. Running without context.")
             return False
         
-        # Get retriever for document search - reduced k for faster retrieval
-        self.retriever = self.doc_processor.get_retriever(vectorstore, k=2)
+        # Get retriever for document search - use MMR and a slightly higher k for better recall
+        self.retriever = self.doc_processor.get_retriever(vectorstore, k=6, search_type="mmr", fetch_k=20)
         
         try:
             chunk_count = vectorstore._collection.count()
@@ -58,12 +58,31 @@ class KnowledgeBase:
                 self.doc_processor.clear_existing_vectorstore()
                 vectorstore = self.doc_processor.setup_knowledge_base(context_dir, force_refresh=True)
                 if vectorstore:
-                    self.retriever = self.doc_processor.get_retriever(vectorstore, k=2)
+                    self.retriever = self.doc_processor.get_retriever(vectorstore, k=6, search_type="mmr", fetch_k=20)
                     chunk_count = vectorstore._collection.count()
                     print(f"✅ Refreshed knowledge base ready with {chunk_count} chunks")
         except Exception as e:
             print(f"⚠️ Could not get chunk count: {e}")
             print("✅ Knowledge base loaded (chunk count unavailable)")
+
+        # Test-retrieve to validate embedding dimension compatibility and auto-rebuild if mismatched
+        try:
+            _ = self.retriever.invoke("smoke test retrieval") if self.retriever else None
+        except Exception as e:
+            msg = str(e)
+            if "dimension" in msg and "got" in msg:
+                print("🔄 Detected embedding dimension mismatch, rebuilding vectorstore...")
+                self.doc_processor.clear_existing_vectorstore()
+                vectorstore = self.doc_processor.setup_knowledge_base(context_dir, force_refresh=True)
+                if vectorstore:
+                    self.retriever = self.doc_processor.get_retriever(vectorstore, k=6, search_type="mmr", fetch_k=20)
+                    try:
+                        _ = self.retriever.invoke("smoke test retrieval after rebuild")
+                        print("✅ Vectorstore rebuilt and validated")
+                    except Exception as e2:
+                        print(f"⚠️ Retrieval validation failed after rebuild: {e2}")
+            else:
+                print(f"⚠️ Retrieval test failed: {e}")
         
         return True
     
