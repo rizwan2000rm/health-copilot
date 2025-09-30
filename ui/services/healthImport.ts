@@ -1,5 +1,5 @@
 import * as DocumentPicker from "expo-document-picker";
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { unzipSync, strFromU8 } from "fflate";
 import { toByteArray } from "base64-js";
@@ -22,6 +22,32 @@ function toISODateLocal(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
+function parseAppleHealthDate(dateStr: string | undefined): Date | null {
+  if (!dateStr) return null;
+  const dNative = new Date(dateStr);
+  if (!isNaN(dNative.getTime())) return dNative;
+  const matchTz = dateStr.match(
+    /^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}:\d{2}) ([-+]\d{4})$/
+  );
+  if (matchTz) {
+    const [, datePart, timePart, tz] = matchTz;
+    const tzWithColon = `${tz.slice(0, 3)}:${tz.slice(3)}`;
+    const iso = `${datePart}T${timePart}${tzWithColon}`;
+    const d = new Date(iso);
+    if (!isNaN(d.getTime())) return d;
+  }
+  const matchNoTz = dateStr.match(
+    /^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}:\d{2})$/
+  );
+  if (matchNoTz) {
+    const [, datePart, timePart] = matchNoTz;
+    const d = new Date(`${datePart}T${timePart}`);
+    if (!isNaN(d.getTime())) return d;
+  }
+  console.warn("[HealthImport] Unparseable date:", dateStr);
+  return null;
+}
+
 export async function importHealthZip(): Promise<
   { days: number } | { error: string }
 > {
@@ -36,7 +62,7 @@ export async function importHealthZip(): Promise<
   const fileUri = asset.uri;
   try {
     const bin = await FileSystem.readAsStringAsync(fileUri, {
-      encoding: FileSystem.EncodingType.Base64,
+      encoding: "base64",
     });
     const zipData = toByteArray(bin);
     const files = unzipSync(zipData);
@@ -76,8 +102,9 @@ export async function importHealthZip(): Promise<
           ? rec.value
           : parseFloat(rec?.value ?? "0");
 
-      const start = new Date(startDateStr);
-      const end = endDateStr ? new Date(endDateStr) : start;
+      const start = parseAppleHealthDate(startDateStr);
+      if (!start) continue;
+      const end = parseAppleHealthDate(endDateStr) || start;
       const value = isNaN(valueNum) ? 0 : valueNum;
 
       if (type === "HKQuantityTypeIdentifierStepCount") {
@@ -140,8 +167,13 @@ export async function importHealthZip(): Promise<
         `${STORAGE_PREFIX}${day}`,
         JSON.stringify(summary)
       );
+      console.log("[HealthImport] Saved", `${STORAGE_PREFIX}${day}`, summary);
     }
-    await AsyncStorage.setItem(LAST_SYNCED_KEY, new Date().toISOString());
+    const nowIso = new Date().toISOString();
+    await AsyncStorage.setItem(LAST_SYNCED_KEY, nowIso);
+    console.log(
+      `[HealthImport] Import complete. Days saved: ${allDays.size}. Last synced at ${nowIso}`
+    );
 
     return { days: allDays.size };
   } catch (e: any) {
