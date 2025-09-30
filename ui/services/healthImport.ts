@@ -13,6 +13,9 @@ type DailySummary = {
   active_kcal: number;
   basal_kcal: number;
   sleep_minutes: number;
+  sleep_start?: string | null;
+  sleep_end?: string | null;
+  sleep_source?: "asleep" | "in_bed" | null;
 };
 
 // Apple Health identifiers for sleep analysis
@@ -91,6 +94,10 @@ export async function importHealthZip(): Promise<
     const basalByDay: Record<string, number> = {};
     const sleepAsleepByDay: Record<string, number> = {};
     const sleepInBedByDay: Record<string, number> = {};
+    const sleepAsleepStartByDay: Record<string, Date> = {};
+    const sleepAsleepEndByDay: Record<string, Date> = {};
+    const sleepInBedStartByDay: Record<string, Date> = {};
+    const sleepInBedEndByDay: Record<string, Date> = {};
 
     const root = parser.parse(xml);
     const recordsRaw = root?.HealthData?.Record ?? [];
@@ -162,8 +169,24 @@ export async function importHealthZip(): Promise<
           if (isAsleep || isAsleepNumeric) {
             sleepAsleepByDay[dayISO] =
               (sleepAsleepByDay[dayISO] || 0) + minutes;
+            const existingStart = sleepAsleepStartByDay[dayISO];
+            const existingEnd = sleepAsleepEndByDay[dayISO];
+            if (!existingStart || segStart < existingStart) {
+              sleepAsleepStartByDay[dayISO] = segStart;
+            }
+            if (!existingEnd || segEnd > existingEnd) {
+              sleepAsleepEndByDay[dayISO] = segEnd;
+            }
           } else if (isInBed || isInBedNumeric) {
             sleepInBedByDay[dayISO] = (sleepInBedByDay[dayISO] || 0) + minutes;
+            const existingStart = sleepInBedStartByDay[dayISO];
+            const existingEnd = sleepInBedEndByDay[dayISO];
+            if (!existingStart || segStart < existingStart) {
+              sleepInBedStartByDay[dayISO] = segStart;
+            }
+            if (!existingEnd || segEnd > existingEnd) {
+              sleepInBedEndByDay[dayISO] = segEnd;
+            }
           }
           cursor = new Date(dayEnd.getTime() + 1);
         }
@@ -179,15 +202,25 @@ export async function importHealthZip(): Promise<
     ]);
 
     for (const day of allDays) {
-      const sleepMinutes =
-        (sleepAsleepByDay[day] ?? 0) > 0
-          ? sleepAsleepByDay[day]
-          : (sleepInBedByDay[day] ?? 0);
+      const asleepMinutes = sleepAsleepByDay[day] ?? 0;
+      const inBedMinutes = sleepInBedByDay[day] ?? 0;
+      const useAsleep = asleepMinutes > 0;
+      const sleepMinutes = useAsleep ? asleepMinutes : inBedMinutes;
+      const startDate = useAsleep
+        ? sleepAsleepStartByDay[day]
+        : sleepInBedStartByDay[day];
+      const endDate = useAsleep
+        ? sleepAsleepEndByDay[day]
+        : sleepInBedEndByDay[day];
       const summary: DailySummary = {
         steps: stepsByDay[day] ?? 0,
         active_kcal: activeByDay[day] ?? 0,
         basal_kcal: basalByDay[day] ?? 0,
         sleep_minutes: sleepMinutes,
+        sleep_start: startDate ? startDate.toISOString() : null,
+        sleep_end: endDate ? endDate.toISOString() : null,
+        sleep_source:
+          sleepMinutes === 0 ? null : useAsleep ? "asleep" : "in_bed",
       };
       await AsyncStorage.setItem(
         `${STORAGE_PREFIX}${day}`,
