@@ -15,6 +15,11 @@ type DailySummary = {
   sleep_minutes: number;
 };
 
+// Apple Health identifiers for sleep analysis
+const SLEEP_CATEGORY_TYPE = "HKCategoryTypeIdentifierSleepAnalysis";
+const SLEEP_VALUE_PREFIX_ASLEEP = "HKCategoryValueSleepAnalysisAsleep"; // covers Asleep, AsleepUnspecified, AsleepCore, AsleepDeep, AsleepREM
+const SLEEP_VALUE_IN_BED = "HKCategoryValueSleepAnalysisInBed";
+
 function toISODateLocal(date: Date): string {
   const y = date.getFullYear();
   const m = `${date.getMonth() + 1}`.padStart(2, "0");
@@ -84,7 +89,8 @@ export async function importHealthZip(): Promise<
     const stepsByDay: Record<string, number> = {};
     const activeByDay: Record<string, number> = {};
     const basalByDay: Record<string, number> = {};
-    const sleepByDay: Record<string, number> = {};
+    const sleepAsleepByDay: Record<string, number> = {};
+    const sleepInBedByDay: Record<string, number> = {};
 
     const root = parser.parse(xml);
     const recordsRaw = root?.HealthData?.Record ?? [];
@@ -101,6 +107,8 @@ export async function importHealthZip(): Promise<
         typeof rec?.value === "number"
           ? rec.value
           : parseFloat(rec?.value ?? "0");
+      const valueStr =
+        typeof rec?.value === "string" ? (rec.value as string) : undefined;
 
       const start = parseAppleHealthDate(startDateStr);
       if (!start) continue;
@@ -122,9 +130,17 @@ export async function importHealthZip(): Promise<
         basalByDay[day] = (basalByDay[day] || 0) + value;
         continue;
       }
-      if (type === "HKCategoryTypeIdentifierSleepAnalysis") {
-        // Non-zero value indicates asleep/stage; treat as asleep
-        if (value === 0) continue;
+      if (type === SLEEP_CATEGORY_TYPE) {
+        const v = valueStr ?? "";
+        const isAsleep = v.startsWith(SLEEP_VALUE_PREFIX_ASLEEP);
+        const isInBed = v === SLEEP_VALUE_IN_BED;
+        // Numeric fallback: 0 = InBed, 1 = Asleep, 2 = Awake
+        const isAsleepNumeric = !v && value === 1;
+        const isInBedNumeric = !v && value === 0;
+        if (!isAsleep && !isInBed && !isAsleepNumeric && !isInBedNumeric) {
+          // Unknown/awake → ignore
+          continue;
+        }
         let cursor = new Date(start);
         while (cursor < end) {
           const dayEnd = new Date(
@@ -143,7 +159,12 @@ export async function importHealthZip(): Promise<
             (segEnd.getTime() - segStart.getTime()) / 60000
           );
           const dayISO = toISODateLocal(segStart);
-          sleepByDay[dayISO] = (sleepByDay[dayISO] || 0) + minutes;
+          if (isAsleep || isAsleepNumeric) {
+            sleepAsleepByDay[dayISO] =
+              (sleepAsleepByDay[dayISO] || 0) + minutes;
+          } else if (isInBed || isInBedNumeric) {
+            sleepInBedByDay[dayISO] = (sleepInBedByDay[dayISO] || 0) + minutes;
+          }
           cursor = new Date(dayEnd.getTime() + 1);
         }
       }
@@ -153,15 +174,20 @@ export async function importHealthZip(): Promise<
       ...Object.keys(stepsByDay),
       ...Object.keys(activeByDay),
       ...Object.keys(basalByDay),
-      ...Object.keys(sleepByDay),
+      ...Object.keys(sleepAsleepByDay),
+      ...Object.keys(sleepInBedByDay),
     ]);
 
     for (const day of allDays) {
+      const sleepMinutes =
+        (sleepAsleepByDay[day] ?? 0) > 0
+          ? sleepAsleepByDay[day]
+          : (sleepInBedByDay[day] ?? 0);
       const summary: DailySummary = {
         steps: stepsByDay[day] ?? 0,
         active_kcal: activeByDay[day] ?? 0,
         basal_kcal: basalByDay[day] ?? 0,
-        sleep_minutes: sleepByDay[day] ?? 0,
+        sleep_minutes: sleepMinutes,
       };
       await AsyncStorage.setItem(
         `${STORAGE_PREFIX}${day}`,
