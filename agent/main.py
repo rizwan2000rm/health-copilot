@@ -105,7 +105,7 @@ async def sleep_analysis(req: SleepAnalysisRequest):
     if _coach is None:
         return ChatResponse(text="Agent not initialized")
 
-    # Prepare a concise but structured prompt for the model
+    # Prepare a concise but structured prompt for the model (no training context)
     header = (
         "You are a sleep coach. Analyze the user's last 30 non zero sleep data points."
         "Identify patterns (duration trends, consistency/bedtime windows, weekend variability, outliers). "
@@ -113,8 +113,16 @@ async def sleep_analysis(req: SleepAnalysisRequest):
         "Use the data fields: date, sleep_minutes, sleep_start, sleep_end, sleep_source, steps, active_kcal, basal_kcal. "
     )
 
-    # Filter to non-zero sleep and take the most recent 30 entries
+    # Validate input and filter to non-zero sleep; take the most recent 30 entries
+    if not req.days or len(req.days) == 0:
+        return ChatResponse(text=(
+            "No sleep data provided. Please send at least 1 day with non-zero sleep_minutes."
+        ))
     days_nonzero = [d for d in req.days if (d.sleep_minutes or 0) > 0]
+    if not days_nonzero:
+        return ChatResponse(text=(
+            "No non-zero sleep data found in the request. Ensure sleep_minutes > 0 for the last 30 days."
+        ))
     days_sorted = sorted(days_nonzero, key=lambda d: d.date)
     if len(days_sorted) > 30:
         days_sorted = days_sorted[-30:]
@@ -134,7 +142,8 @@ async def sleep_analysis(req: SleepAnalysisRequest):
         "\n\nReturn a short analysis followed by a numbered list of recommendations."
     )
 
-    reply = await _coach.get_response(prompt)
+    # Bypass RAG/agent to avoid injecting unrelated research context
+    reply = await _coach.get_direct_response(prompt)
     return ChatResponse(text=reply)
 
 

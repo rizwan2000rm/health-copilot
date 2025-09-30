@@ -48,10 +48,10 @@ class HttpChatService implements ChatService {
 
   private async analyzeLast30DaySleep(): Promise<string> {
     try {
-      // Collect last 30 days of stored summaries
+      // Collect up to last 365 days of stored summaries to ensure 30 non-zero entries
       const today = new Date();
       const keys: string[] = [];
-      for (let i = 0; i < 30; i++) {
+      for (let i = 0; i < 365; i++) {
         const d = new Date(today);
         d.setDate(today.getDate() - i);
         const y = d.getFullYear();

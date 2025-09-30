@@ -339,3 +339,27 @@ SOURCES:
             "has_agent": self.agent is not None,
             **mcp_stats
         }
+
+    async def get_direct_response(self, user_input: str) -> str:
+        """Get a direct response from the base LLM without RAG context or MCP agent.
+
+        This is useful for specialized prompts (e.g., sleep analysis) where external
+        training context and tool usage would be distracting or out-of-domain.
+        """
+        from langchain_core.prompts import ChatPromptTemplate
+        from langchain_core.output_parsers import StrOutputParser
+
+        def try_invoke(llm_model):
+            prompt = ChatPromptTemplate.from_template("{input}")
+            chain = prompt | llm_model | StrOutputParser()
+            return chain.invoke({"input": user_input})
+
+        try:
+            return try_invoke(self.model)
+        except Exception as e1:
+            if self.fallback_model is not None:
+                try:
+                    return try_invoke(self.fallback_model)
+                except Exception:
+                    pass
+            return "Sorry, I'm temporarily unavailable. Please try again shortly."
