@@ -147,14 +147,17 @@ class FitnessCoach:
         self.template = """
 You are a minimalist fitness coach expert focused on evidence-based, time-efficient workout planning.
 
+USER REQUEST:
+{input}
+
+CONVERSATION HISTORY:
+{chat_history}
+
 RESEARCH CONTEXT:
 {context}
 
 SOURCES:
 {sources}
-
-USER REQUEST:
-{input}
 
 INSTRUCTIONS:
 - Provide helpful, evidence-based fitness advice and workout recommendations
@@ -275,18 +278,113 @@ EXCERPTS:
 
         return summary, sources
 
-    async def get_response(self, user_input: str) -> str:
+    def _format_chat_history(
+        self,
+        history: List[Dict[str, str]] | None,
+        max_turns: int = 6,
+        max_chars: int = 3200,
+    ) -> str:
+        if not history:
+            return ""
+
+        recent = history[-max_turns:]
+        lines: List[str] = []
+        total_chars = 0
+        for msg in recent:
+            role = msg.get("role", "user")
+            text = (msg.get("text") or "").strip()
+            if not text:
+                continue
+            normalized = " ".join(text.split())
+            if len(normalized) > 600:
+                normalized = normalized[:600].rstrip() + "..."
+            label = "User" if role == "user" else "Coach"
+            line = f"{label}: {normalized}"
+            if total_chars + len(line) > max_chars:
+                break
+            lines.append(line)
+            total_chars += len(line)
+
+        return "\n".join(lines)
+
+    def _should_use_research_context(
+        self,
+        user_input: str,
+        history: List[Dict[str, str]] | None = None,
+        history_text: str | None = None,
+    ) -> bool:
+        text = user_input.lower()
+
+        workout_keywords = [
+            "workout",
+            "routine",
+            "strength",
+            "lift",
+            "hypertrophy",
+            "training plan",
+            "exercise",
+        ]
+        metrics_keywords = [
+            "sleep_minutes",
+            "sleep_start",
+            "sleep_end",
+            "sleep data",
+            "sleep analysis",
+            "sleep coach",
+            "sleep",
+            "step",
+            "step data",
+            "steps analysis",
+            "walking trend",
+            "walking coach",
+            "data (oldest",
+        ]
+
+        if any(keyword in text for keyword in metrics_keywords):
+            return False
+
+        history_blob = history_text.lower() if history_text else ""
+        if not history_blob and history:
+            recent_msgs = history[-6:]
+            history_blob = " ".join(
+                (msg.get("text") or "").lower() for msg in recent_msgs
+            )
+
+        if history_blob:
+            if any(marker in history_blob for marker in metrics_keywords):
+                if not any(keyword in text for keyword in workout_keywords):
+                    return False
+
+        return True
+
+    async def get_response(
+        self, user_input: str, history: List[Dict[str, str]] | None = None
+    ) -> str:
         """Get a response from the AI coach."""
-        # Build improved RAG context
-        context_text, sources = self._build_rag_context(user_input)
+        history_text = self._format_chat_history(history)
+
+        # Build improved RAG context when appropriate
+        use_research = self._should_use_research_context(
+            user_input, history, history_text
+        )
+        if use_research:
+            context_text, sources = self._build_rag_context(user_input)
+        else:
+            context_text, sources = "", []
         sources_text = ", ".join(sources) if sources else ""
 
         if self.agent:
             try:
                 # Use agent with MCP tools
-                agent_input = user_input
-                if context_text or sources_text:
-                    agent_input = f"RESEARCH CONTEXT:\n{context_text}\n\nSOURCES:\n{sources_text}\n\nUSER REQUEST: {user_input}"
+                sections: List[str] = []
+                if history_text:
+                    sections.append(f"CONVERSATION HISTORY:\n{history_text}")
+                if context_text:
+                    sections.append(f"RESEARCH CONTEXT:\n{context_text}")
+                if sources_text:
+                    sections.append(f"SOURCES:\n{sources_text}")
+                sections.append(f"USER REQUEST:\n{user_input}")
+                agent_input = "\n\n".join(sections)
                 print(
                     "\n📝 Prompt (LLM input via Agent)\n=================================================="
                 )
@@ -306,8 +404,14 @@ EXCERPTS:
         # Fallback to basic chain with knowledge base context
         def try_invoke(llm_model):
             chain = self.prompt | llm_model | StrOutputParser()
+            chat_history_section = (
+                history_text if history_text else "No prior messages."
+            )
             rendered_prompt_text = self.template.format(
-                context=context_text, sources=sources_text, input=user_input
+                context=context_text,
+                sources=sources_text,
+                chat_history=chat_history_section,
+                input=user_input,
             )
             print(
                 "\n📝 Prompt (LLM input)\n=================================================="
@@ -315,7 +419,12 @@ EXCERPTS:
             print(rendered_prompt_text)
             print("==================================================\n")
             return chain.invoke(
-                {"context": context_text, "sources": sources_text, "input": user_input}
+                {
+                    "context": context_text,
+                    "sources": sources_text,
+                    "chat_history": chat_history_section,
+                    "input": user_input,
+                }
             )
 
         try:
@@ -408,3 +517,27 @@ SOURCES:
             "has_agent": self.agent is not None,
             **mcp_stats,
         }
+
+    async def get_direct_response(self, user_input: str) -> str:
+        """Get a direct response from the base LLM without RAG context or MCP agent.
+
+        This is useful for specialized prompts (e.g., sleep analysis) where external
+        training context and tool usage would be distracting or out-of-domain.
+        """
+        from langchain_core.prompts import ChatPromptTemplate
+        from langchain_core.output_parsers import StrOutputParser
+
+        def try_invoke(llm_model):
+            prompt = ChatPromptTemplate.from_template("{input}")
+            chain = prompt | llm_model | StrOutputParser()
+            return chain.invoke({"input": user_input})
+
+        try:
+            return try_invoke(self.model)
+        except Exception as e1:
+            if self.fallback_model is not None:
+                try:
+                    return try_invoke(self.fallback_model)
+                except Exception:
+                    pass
+            return "Sorry, I'm temporarily unavailable. Please try again shortly."

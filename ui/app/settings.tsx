@@ -3,6 +3,7 @@ import { View, Text, ScrollView, ActivityIndicator } from "react-native";
 import { useSettings } from "@/hooks/useSettings";
 import ApiKeysSection from "@/components/settings/ApiKeysSection";
 import AboutSection from "@/components/settings/AboutSection";
+import HealthImportSection from "@/components/settings/HealthImportSection";
 
 const SettingsScreen = () => {
   const { isLoading, error } = useSettings();
@@ -27,6 +28,7 @@ const SettingsScreen = () => {
 
         <View className="space-y-8">
           <ApiKeysSection />
+          <HealthImportSection />
           <AboutSection />
         </View>
       </ScrollView>
