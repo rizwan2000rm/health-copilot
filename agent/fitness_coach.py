@@ -363,15 +363,9 @@ EXCERPTS:
         """Get a response from the AI coach."""
         history_text = self._format_chat_history(history)
 
-        # Build improved RAG context when appropriate
-        use_research = self._should_use_research_context(
-            user_input, history, history_text
-        )
-        if use_research:
-            context_text, sources = self._build_rag_context(user_input)
-        else:
-            context_text, sources = "", []
-        sources_text = ", ".join(sources) if sources else ""
+        # Skip research context for standard chats; weekly workouts inject it explicitly.
+        context_text, sources = "", []
+        sources_text = ""
 
         if self.agent:
             try:
@@ -467,6 +461,8 @@ Create a weekly workout plan for me. Follow these steps:
    - Uses compound movements (squats, rdls, bench press etc)
    - Balances all muscle groups
    - Includes progressive overload
+   - Keeps each strength session to ~45 minutes with 6-8 exercises, each for 3-4 sets
+   - Adds a 15-minute cardio finisher (treadmill or cycle) after the strength block
    - Uses exercise templates from step 1
 
 5. Create the routine folder: create_routine_folder(payload={{"routine_folder": {{"title": "Week xx"}}}})
