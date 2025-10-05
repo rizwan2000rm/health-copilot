@@ -21,13 +21,13 @@ const InputBar = ({ value, onChange, canSend, onSend }: Props) => {
           className="flex-1 mx-3 !pt-0 text-base leading-5 text-[#f8f7f3]"
           placeholderTextColor="#9c9a92"
           returnKeyType="next"
-          onSubmitEditing={onSend}
+          onSubmitEditing={() => onSend()}
           submitBehavior="blurAndSubmit"
           unstyled
         />
 
         <View className="self-end">
-          <SendButton disabled={!canSend} onPress={onSend} size={32} />
+          <SendButton disabled={!canSend} onPress={() => onSend()} size={32} />
         </View>
       </View>
     </View>

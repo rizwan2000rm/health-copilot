@@ -5,7 +5,11 @@ type Props = {
   onSend: (text: string) => void;
 };
 
-const defaultSuggestions = ["Plan my next week workouts"];
+const defaultSuggestions = [
+  "Plan my next week workouts",
+  "Analyze my last 30 day sleep",
+  "Analyze my step trends over the last month",
+];
 
 const SuggestionChips = ({ onSend }: Props) => {
   const chips = useMemo(() => defaultSuggestions, []);

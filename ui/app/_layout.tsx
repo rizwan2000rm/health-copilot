@@ -17,6 +17,7 @@ const Drawer = createDrawerNavigator();
 const RootLayout = () => {
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
   const [drawerRefreshKey, setDrawerRefreshKey] = useState(0);
+  const [newChatKey, setNewChatKey] = useState(0);
 
   const handleChatSelect = (chat: ChatSession) => {
     setCurrentChatId(chat.id);
@@ -24,6 +25,7 @@ const RootLayout = () => {
 
   const handleNewChat = () => {
     setCurrentChatId(null);
+    setNewChatKey((prev) => prev + 1);
   };
 
   const handleChatSaved = () => {
@@ -93,6 +95,7 @@ const RootLayout = () => {
           {(props) => (
             <Index
               {...props}
+              key={newChatKey}
               currentChatId={currentChatId}
               onChatSaved={handleChatSaved}
             />
