@@ -12,6 +12,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from knowledge import KnowledgeBase
 from mcp_integration import MCPIntegration
+
 try:
     from langchain_ollama import ChatOllama  # Fallback if OpenAI not configured
 except Exception:
@@ -20,7 +21,7 @@ except Exception:
 
 class FitnessCoach:
     """AI Fitness Coach with MCP tools and knowledge base integration."""
-    
+
     def __init__(self, model_name: str = "gpt-5-nano"):
         """Initialize the AI Fitness Coach."""
         self.model_name = model_name
@@ -29,20 +30,30 @@ class FitnessCoach:
         self.fallback_model = None
         self._context_dir = None  # set during setup_knowledge_base
         openai_key = os.getenv("OPENAI_API_KEY")
-        openai_only = os.getenv("AGENT_OPENAI_ONLY", "true").lower() in ("1", "true", "yes")
+        openai_only = os.getenv("AGENT_OPENAI_ONLY", "true").lower() in (
+            "1",
+            "true",
+            "yes",
+        )
 
         def is_ollama_name(name: str) -> bool:
             lname = name.lower()
-            return ":" in lname or lname.startswith(("qwen", "llama", "mistral", "phi", "mixtral", "codellama", "gemma"))
+            return ":" in lname or lname.startswith(
+                ("qwen", "llama", "mistral", "phi", "mixtral", "codellama", "gemma")
+            )
 
         # OpenAI-only path (default)
         if openai_only:
             if not openai_key:
-                raise RuntimeError("OPENAI_API_KEY is required when AGENT_OPENAI_ONLY is enabled.")
+                raise RuntimeError(
+                    "OPENAI_API_KEY is required when AGENT_OPENAI_ONLY is enabled."
+                )
             # If an Ollama-style name was provided, override to a sane OpenAI default
             chosen_name = model_name
             if is_ollama_name(model_name):
-                print(f"ℹ️ Overriding non-OpenAI model '{model_name}' to 'gpt-4o-mini' due to AGENT_OPENAI_ONLY=true")
+                print(
+                    f"ℹ️ Overriding non-OpenAI model '{model_name}' to 'gpt-4o-mini' due to AGENT_OPENAI_ONLY=true"
+                )
                 chosen_name = "gpt-4o-mini"
             try:
                 self.model = ChatOpenAI(model=chosen_name, temperature=0.7)
@@ -52,7 +63,9 @@ class FitnessCoach:
             # OpenAI fallback (different small model if available)
             if self.model is None:
                 try:
-                    self.fallback_model = ChatOpenAI(model="gpt-4o-mini", temperature=0.7)
+                    self.fallback_model = ChatOpenAI(
+                        model="gpt-4o-mini", temperature=0.7
+                    )
                     self.model = self.fallback_model
                     self.model_name = "gpt-4o-mini"
                 except Exception as e:
@@ -69,9 +82,13 @@ class FitnessCoach:
             # Configure sensible fallback within the chosen ecosystem
             try:
                 if isinstance(self.model, ChatOpenAI):
-                    self.fallback_model = ChatOpenAI(model="gpt-4o-mini", temperature=0.7)
+                    self.fallback_model = ChatOpenAI(
+                        model="gpt-4o-mini", temperature=0.7
+                    )
                 elif ChatOllama is not None and self.model is not None:
-                    self.fallback_model = ChatOllama(model="qwen2.5:3b", temperature=0.7)
+                    self.fallback_model = ChatOllama(
+                        model="qwen2.5:3b", temperature=0.7
+                    )
             except Exception as e:
                 print(f"⚠️ Failed to initialize fallback model: {e}")
 
@@ -79,27 +96,32 @@ class FitnessCoach:
         if self.model is None and self.fallback_model is not None:
             self.model = self.fallback_model
         if self.model is None:
-            raise RuntimeError("No LLM available. Set OPENAI_API_KEY or install/run Ollama.")
+            raise RuntimeError(
+                "No LLM available. Set OPENAI_API_KEY or install/run Ollama."
+            )
         self.knowledge_base = KnowledgeBase()
         self.mcp = MCPIntegration()
         self.agent = None
-        
+
         # Initialize the prompt template
         self._setup_prompt_template()
-    
+
     def _setup_prompt_template(self) -> None:
         """Set up the prompt template for the AI coach."""
         self.template = """
 You are a minimalist fitness coach expert focused on evidence-based, time-efficient workout planning.
+
+USER REQUEST:
+{input}
+
+CONVERSATION HISTORY:
+{chat_history}
 
 RESEARCH CONTEXT:
 {context}
 
 SOURCES:
 {sources}
-
-USER REQUEST:
-{input}
 
 INSTRUCTIONS:
 - Provide helpful, evidence-based fitness advice and workout recommendations
@@ -121,11 +143,11 @@ Provide comprehensive, actionable fitness guidance.
 """
 
         self.prompt = ChatPromptTemplate.from_template(self.template)
-    
+
     def setup_knowledge_base(self, context_dir: str) -> bool:
         """Set up the knowledge base from context directory."""
         return self.knowledge_base.setup_knowledge_base(context_dir)
-    
+
     async def setup_agent(self) -> bool:
         """Set up the LangGraph agent with MCP tools."""
         try:
@@ -134,7 +156,7 @@ Provide comprehensive, actionable fitness guidance.
             if not connection_ok:
                 print("⚠️ MCP connection failed, agent will use knowledge base only")
                 return False
-            
+
             # Load tools and create agent
             tools = await self.mcp.load_tools()
             if tools:
@@ -142,14 +164,16 @@ Provide comprehensive, actionable fitness guidance.
                 if self.agent:
                     print("✅ Agent successfully created with MCP tools")
                     return True
-            
+
             print("⚠️ Failed to create agent with MCP tools")
             return False
         except Exception as e:
             print(f"⚠️ Error setting up agent: {e}")
             return False
-    
-    def _build_rag_context(self, user_input: str, seed_queries: List[str] | None = None) -> Tuple[str, List[str]]:
+
+    def _build_rag_context(
+        self, user_input: str, seed_queries: List[str] | None = None
+    ) -> Tuple[str, List[str]]:
         """Build a richer RAG context by running multiple diversified queries and summarizing results.
 
         Returns a tuple of (summary_text, source_filenames).
@@ -176,9 +200,12 @@ Provide comprehensive, actionable fitness guidance.
             except Exception as e:
                 print(f"⚠️ Retrieval failed for query '{q}': {e}")
                 continue
-            for d in (docs or []):
+            for d in docs or []:
                 # Deduplicate by content prefix and source when available
-                snippet_key = (d.page_content[:200], d.metadata.get("source", "unknown"))
+                snippet_key = (
+                    d.page_content[:200],
+                    d.metadata.get("source", "unknown"),
+                )
                 if snippet_key in seen_snippets:
                     continue
                 seen_snippets.add(snippet_key)
@@ -188,7 +215,9 @@ Provide comprehensive, actionable fitness guidance.
             return "", []
 
         # Format docs and collect sources
-        formatted_text, sources = self.knowledge_base.format_docs_with_sources(collected_docs[:12])
+        formatted_text, sources = self.knowledge_base.format_docs_with_sources(
+            collected_docs[:12]
+        )
 
         # Summarize into a concise context
         try:
@@ -213,27 +242,124 @@ EXCERPTS:
 
         return summary, sources
 
-    async def get_response(self, user_input: str) -> str:
+    def _format_chat_history(
+        self,
+        history: List[Dict[str, str]] | None,
+        max_turns: int = 6,
+        max_chars: int = 3200,
+    ) -> str:
+        if not history:
+            return ""
+
+        recent = history[-max_turns:]
+        lines: List[str] = []
+        total_chars = 0
+        for msg in recent:
+            role = msg.get("role", "user")
+            text = (msg.get("text") or "").strip()
+            if not text:
+                continue
+            normalized = " ".join(text.split())
+            if len(normalized) > 600:
+                normalized = normalized[:600].rstrip() + "..."
+            label = "User" if role == "user" else "Coach"
+            line = f"{label}: {normalized}"
+            if total_chars + len(line) > max_chars:
+                break
+            lines.append(line)
+            total_chars += len(line)
+
+        return "\n".join(lines)
+
+    def _should_use_research_context(
+        self,
+        user_input: str,
+        history: List[Dict[str, str]] | None = None,
+        history_text: str | None = None,
+    ) -> bool:
+        text = user_input.lower()
+
+        workout_keywords = [
+            "workout",
+            "routine",
+            "strength",
+            "lift",
+            "hypertrophy",
+            "training plan",
+            "exercise",
+        ]
+        metrics_keywords = [
+            "sleep_minutes",
+            "sleep_start",
+            "sleep_end",
+            "sleep data",
+            "sleep analysis",
+            "sleep coach",
+            "sleep",
+            "step",
+            "step data",
+            "steps analysis",
+            "walking trend",
+            "walking coach",
+            "data (oldest",
+        ]
+
+        if any(keyword in text for keyword in metrics_keywords):
+            return False
+
+        history_blob = history_text.lower() if history_text else ""
+        if not history_blob and history:
+            recent_msgs = history[-6:]
+            history_blob = " ".join(
+                (msg.get("text") or "").lower() for msg in recent_msgs
+            )
+
+        if history_blob:
+            if any(marker in history_blob for marker in metrics_keywords):
+                if not any(keyword in text for keyword in workout_keywords):
+                    return False
+
+        return True
+
+    async def get_response(
+        self, user_input: str, history: List[Dict[str, str]] | None = None
+    ) -> str:
         """Get a response from the AI coach."""
-        # Build improved RAG context
-        context_text, sources = self._build_rag_context(user_input)
+        history_text = self._format_chat_history(history)
+
+        # Build improved RAG context when appropriate
+        use_research = self._should_use_research_context(
+            user_input, history, history_text
+        )
+        if use_research:
+            context_text, sources = self._build_rag_context(user_input)
+        else:
+            context_text, sources = "", []
         sources_text = ", ".join(sources) if sources else ""
 
         if self.agent:
             try:
                 # Use agent with MCP tools
-                agent_input = user_input
-                if context_text or sources_text:
-                    agent_input = (
-                        f"RESEARCH CONTEXT:\n{context_text}\n\nSOURCES:\n{sources_text}\n\nUSER REQUEST: {user_input}"
-                    )
-                print("\n📝 Prompt (LLM input via Agent)\n==================================================")
+                sections: List[str] = []
+                if history_text:
+                    sections.append(f"CONVERSATION HISTORY:\n{history_text}")
+                if context_text:
+                    sections.append(f"RESEARCH CONTEXT:\n{context_text}")
+                if sources_text:
+                    sections.append(f"SOURCES:\n{sources_text}")
+                sections.append(f"USER REQUEST:\n{user_input}")
+                agent_input = "\n\n".join(sections)
+                print(
+                    "\n📝 Prompt (LLM input via Agent)\n=================================================="
+                )
                 print(agent_input)
                 print("==================================================\n")
-                response = await self.agent.ainvoke({"messages": [("user", agent_input)]})
+                response = await self.agent.ainvoke(
+                    {"messages": [("user", agent_input)]}
+                )
                 if isinstance(response, dict) and "messages" in response:
                     messages = response["messages"]
-                    if messages and hasattr(messages[-1], 'content'):
+                    if messages and hasattr(messages[-1], "content"):
                         return messages[-1].content
                 return str(response)
             except Exception as e:
@@ -242,11 +368,28 @@ EXCERPTS:
         # Fallback to basic chain with knowledge base context
         def try_invoke(llm_model):
             chain = self.prompt | llm_model | StrOutputParser()
-            rendered_prompt_text = self.template.format(context=context_text, sources=sources_text, input=user_input)
-            print("\n📝 Prompt (LLM input)\n==================================================")
+            chat_history_section = (
+                history_text if history_text else "No prior messages."
+            )
+            rendered_prompt_text = self.template.format(
+                context=context_text,
+                sources=sources_text,
+                chat_history=chat_history_section,
+                input=user_input,
+            )
+            print(
+                "\n📝 Prompt (LLM input)\n=================================================="
+            )
             print(rendered_prompt_text)
             print("==================================================\n")
-            return chain.invoke({"context": context_text, "sources": sources_text, "input": user_input})
+            return chain.invoke(
+                {
+                    "context": context_text,
+                    "sources": sources_text,
+                    "chat_history": chat_history_section,
+                    "input": user_input,
+                }
+            )
 
         try:
             return try_invoke(self.model)
@@ -258,8 +401,7 @@ EXCERPTS:
                 except Exception as e3:
                     print(f"⚠️ Fallback model failed: {e3}")
             return "Sorry, I'm temporarily unavailable due to rate limits. Please try again shortly."
-    
-    
+
     async def generate_weekly_plan(self) -> str:
         """Generate a comprehensive weekly workout plan."""
         # Build research context specialized for weekly planning
@@ -272,7 +414,7 @@ EXCERPTS:
             ],
         )
         sources_text = ", ".join(sources) if sources else ""
-        
+
         weekly_plan_prompt = f"""
 Create a weekly workout plan for me. Follow these steps:
 
@@ -329,7 +471,7 @@ SOURCES:
 {sources_text}
 """
         return await self.get_response(weekly_plan_prompt)
-    
+
     def get_stats(self) -> Dict[str, Any]:
         """Get system statistics."""
         mcp_stats = self.mcp.get_stats()
@@ -337,7 +479,7 @@ SOURCES:
             "model_name": self.model_name,
             "has_retriever": self.knowledge_base.has_knowledge_base(),
             "has_agent": self.agent is not None,
-            **mcp_stats
+            **mcp_stats,
         }
 
     async def get_direct_response(self, user_input: str) -> str:

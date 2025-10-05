@@ -6,7 +6,7 @@ Provides both a console UI entry point and a FastAPI server for UI integration.
 
 import asyncio
 import os
-from typing import Optional, List
+from typing import Literal, Optional, List
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -33,8 +33,14 @@ _coach: Optional[FitnessCoach] = None
 _initialized = False
 
 
+class ChatMessage(BaseModel):
+    role: Literal["user", "assistant"]
+    text: str
+
+
 class ChatRequest(BaseModel):
     prompt: str
+    history: List[ChatMessage] | None = None
 
 
 class ChatResponse(BaseModel):
@@ -65,7 +71,10 @@ async def startup_event():
 async def chat(req: ChatRequest):
     if _coach is None:
         return ChatResponse(text="Agent not initialized")
-    reply = await _coach.get_response(req.prompt)
+    history_payload = None
+    if req.history:
+        history_payload = [{"role": msg.role, "text": msg.text} for msg in req.history]
+    reply = await _coach.get_response(req.prompt, history_payload)
     return ChatResponse(text=reply)
 
 

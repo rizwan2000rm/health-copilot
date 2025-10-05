@@ -6,6 +6,11 @@ export type ChatMessage = {
   text: string;
 };
 
+export type ChatHistoryTurn = {
+  role: ChatRole;
+  text: string;
+};
+
 export interface ChatService {
-  reply(prompt: string): Promise<string>;
+  reply(prompt: string, history?: ChatHistoryTurn[]): Promise<string>;
 }

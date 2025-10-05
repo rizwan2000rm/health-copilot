@@ -210,12 +210,19 @@ export function useChat(initialChatId?: string, onChatSaved?: () => void) {
         timestamp: new Date(),
       };
 
+      const historyForLLM = messages
+        .filter((message) => message.id !== "welcome")
+        .map((message) => ({
+          role: message.role,
+          text: message.text,
+        }));
+
       setMessages((prev) => [...prev, userMessage]);
       setHasUnsavedChanges(true);
       setIsTyping(true);
 
       try {
-        const aiText = await chatService.reply(text);
+        const aiText = await chatService.reply(text, historyForLLM);
         const aiMessage: ChatMessage = {
           id: `${Date.now()}-ai`,
           role: "assistant",
@@ -239,7 +246,7 @@ export function useChat(initialChatId?: string, onChatSaved?: () => void) {
         setIsTyping(false);
       }
     },
-    [input, isTyping]
+    [input, isTyping, messages]
   );
 
   // Manual save function

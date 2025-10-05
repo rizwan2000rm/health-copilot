@@ -1,4 +1,4 @@
-import type { ChatService } from "@/types/chat";
+import type { ChatHistoryTurn, ChatService } from "@/types/chat";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const AGENT_URL = process.env.EXPO_PUBLIC_AGENT_URL || "http://127.0.0.1:8000";
@@ -15,7 +15,10 @@ type DailySummary = {
 };
 
 class HttpChatService implements ChatService {
-  async reply(prompt: string): Promise<string> {
+  async reply(
+    prompt: string,
+    history: ChatHistoryTurn[] = []
+  ): Promise<string> {
     const text = prompt.trim();
     if (!text) return "Could you share a bit more about your goal?";
 
@@ -37,10 +40,18 @@ class HttpChatService implements ChatService {
     }
 
     try {
+      const sanitizedHistory = history
+        .filter((turn) => turn.text.trim().length > 0)
+        .slice(-12)
+        .map((turn) => ({
+          role: turn.role,
+          text: turn.text.trim(),
+        }));
+
       const res = await fetch(`${AGENT_URL}/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: text }),
+        body: JSON.stringify({ prompt: text, history: sanitizedHistory }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = (await res.json()) as { text?: string };
