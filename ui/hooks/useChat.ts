@@ -195,7 +195,9 @@ export function useChat(initialChatId?: string, onChatSaved?: () => void) {
 
   const handleSend = useCallback(
     async (messageText?: string) => {
-      const text = messageText || input.trim();
+      const textSource =
+        typeof messageText === "string" ? messageText : undefined;
+      const text = textSource?.trim() || input.trim();
       if (!text || isTyping) return;
 
       setInput("");
