@@ -8,6 +8,7 @@ type Props = {
 const defaultSuggestions = [
   "Plan my next week workouts",
   "Analyze my last 30 day sleep",
+  "Analyze my step trends over the last month",
 ];
 
 const SuggestionChips = ({ onSend }: Props) => {
