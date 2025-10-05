@@ -12,6 +12,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from knowledge import KnowledgeBase
 from mcp_integration import MCPIntegration
+
 try:
     from langchain_ollama import ChatOllama  # Fallback if OpenAI not configured
 except Exception:
@@ -20,7 +21,7 @@ except Exception:
 
 class FitnessCoach:
     """AI Fitness Coach with MCP tools and knowledge base integration."""
-    
+
     def __init__(self, model_name: str = "gpt-5-nano"):
         """Initialize the AI Fitness Coach."""
         self.model_name = model_name
@@ -29,64 +30,118 @@ class FitnessCoach:
         self.fallback_model = None
         self._context_dir = None  # set during setup_knowledge_base
         openai_key = os.getenv("OPENAI_API_KEY")
-        openai_only = os.getenv("AGENT_OPENAI_ONLY", "true").lower() in ("1", "true", "yes")
+        warned_openai_missing = False
+        warned_ollama_missing = False
 
         def is_ollama_name(name: str) -> bool:
             lname = name.lower()
-            return ":" in lname or lname.startswith(("qwen", "llama", "mistral", "phi", "mixtral", "codellama", "gemma"))
+            return ":" in lname or lname.startswith(
+                ("qwen", "llama", "mistral", "phi", "mixtral", "codellama", "gemma")
+            )
 
-        # OpenAI-only path (default)
-        if openai_only:
+        def init_openai(name: str):
+            nonlocal warned_openai_missing
             if not openai_key:
-                raise RuntimeError("OPENAI_API_KEY is required when AGENT_OPENAI_ONLY is enabled.")
-            # If an Ollama-style name was provided, override to a sane OpenAI default
-            chosen_name = model_name
-            if is_ollama_name(model_name):
-                print(f"ℹ️ Overriding non-OpenAI model '{model_name}' to 'gpt-4o-mini' due to AGENT_OPENAI_ONLY=true")
-                chosen_name = "gpt-4o-mini"
+                if not warned_openai_missing:
+                    print(
+                        "⚠️ OPENAI_API_KEY not set; skipping OpenAI model initialization."
+                    )
+                    warned_openai_missing = True
+                return None
             try:
-                self.model = ChatOpenAI(model=chosen_name, temperature=0.7)
-                self.model_name = chosen_name
+                return ChatOpenAI(model=name, temperature=0.7)
             except Exception as e:
-                print(f"⚠️ Failed to initialize OpenAI model '{chosen_name}': {e}")
-            # OpenAI fallback (different small model if available)
-            if self.model is None:
-                try:
-                    self.fallback_model = ChatOpenAI(model="gpt-4o-mini", temperature=0.7)
-                    self.model = self.fallback_model
-                    self.model_name = "gpt-4o-mini"
-                except Exception as e:
-                    print(f"⚠️ Failed to initialize OpenAI fallback model: {e}")
+                print(f"⚠️ Failed to initialize OpenAI model '{name}': {e}")
+                return None
+
+        def init_ollama(name: str):
+            nonlocal warned_ollama_missing
+            if ChatOllama is None:
+                if not warned_ollama_missing:
+                    print(
+                        "⚠️ langchain_ollama not available; skipping Ollama model initialization."
+                    )
+                    warned_ollama_missing = True
+                return None
+            try:
+                return ChatOllama(model=name, temperature=0.7)
+            except Exception as e:
+                print(f"⚠️ Failed to initialize Ollama model '{name}': {e}")
+                return None
+
+        requested_is_ollama = is_ollama_name(model_name)
+        candidate_order = []
+
+        if requested_is_ollama:
+            candidate_order.append(("ollama", init_ollama, model_name))
+            if ChatOllama is not None:
+                ollama_fallback_name = "qwen2.5:3b"
+                if ollama_fallback_name != model_name:
+                    candidate_order.append(
+                        ("ollama", init_ollama, ollama_fallback_name)
+                    )
+            if openai_key:
+                candidate_order.append(("openai", init_openai, "gpt-5-nano"))
         else:
-            # Hybrid path: try to honor requested model name
-            try:
-                if not is_ollama_name(model_name) and openai_key:
-                    self.model = ChatOpenAI(model=model_name, temperature=0.7)
-                elif is_ollama_name(model_name) and ChatOllama is not None:
-                    self.model = ChatOllama(model=model_name, temperature=0.7)
-            except Exception as e:
-                print(f"⚠️ Failed to initialize requested model '{model_name}': {e}")
-            # Configure sensible fallback within the chosen ecosystem
-            try:
-                if isinstance(self.model, ChatOpenAI):
-                    self.fallback_model = ChatOpenAI(model="gpt-4o-mini", temperature=0.7)
-                elif ChatOllama is not None and self.model is not None:
-                    self.fallback_model = ChatOllama(model="qwen2.5:3b", temperature=0.7)
-            except Exception as e:
-                print(f"⚠️ Failed to initialize fallback model: {e}")
+            candidate_order.append(("openai", init_openai, model_name))
+            if openai_key and model_name != "gpt-5-nano":
+                candidate_order.append(("openai", init_openai, "gpt-5-nano"))
+            if ChatOllama is not None:
+                candidate_order.append(("ollama", init_ollama, "qwen2.5:3b"))
+
+        attempt_results = {}
+        primary_selection = None
+
+        for provider, initializer, name in candidate_order:
+            key = (provider, name)
+            if key in attempt_results:
+                model_instance = attempt_results[key]
+            else:
+                model_instance = initializer(name)
+                attempt_results[key] = model_instance
+            if model_instance is not None:
+                self.model = model_instance
+                self.model_name = name
+                primary_selection = key
+                break
+
+        if self.model is None:
+            raise RuntimeError(
+                "No LLM available. Set OPENAI_API_KEY or install/run Ollama."
+            )
+
+        for provider, initializer, name in candidate_order:
+            key = (provider, name)
+            if key == primary_selection:
+                continue
+            if key in attempt_results:
+                model_instance = attempt_results[key]
+            else:
+                model_instance = initializer(name)
+                attempt_results[key] = model_instance
+            if model_instance is not None:
+                self.fallback_model = model_instance
+                break
+
+        if self.model_name != model_name:
+            print(
+                f"ℹ️ Using fallback model '{self.model_name}' instead of requested '{model_name}'."
+            )
 
         # If still no primary model, use whichever fallback worked
         if self.model is None and self.fallback_model is not None:
             self.model = self.fallback_model
         if self.model is None:
-            raise RuntimeError("No LLM available. Set OPENAI_API_KEY or install/run Ollama.")
+            raise RuntimeError(
+                "No LLM available. Set OPENAI_API_KEY or install/run Ollama."
+            )
         self.knowledge_base = KnowledgeBase()
         self.mcp = MCPIntegration()
         self.agent = None
-        
+
         # Initialize the prompt template
         self._setup_prompt_template()
-    
+
     def _setup_prompt_template(self) -> None:
         """Set up the prompt template for the AI coach."""
         self.template = """
@@ -121,11 +176,11 @@ Provide comprehensive, actionable fitness guidance.
 """
 
         self.prompt = ChatPromptTemplate.from_template(self.template)
-    
+
     def setup_knowledge_base(self, context_dir: str) -> bool:
         """Set up the knowledge base from context directory."""
         return self.knowledge_base.setup_knowledge_base(context_dir)
-    
+
     async def setup_agent(self) -> bool:
         """Set up the LangGraph agent with MCP tools."""
         try:
@@ -134,7 +189,7 @@ Provide comprehensive, actionable fitness guidance.
             if not connection_ok:
                 print("⚠️ MCP connection failed, agent will use knowledge base only")
                 return False
-            
+
             # Load tools and create agent
             tools = await self.mcp.load_tools()
             if tools:
@@ -142,14 +197,16 @@ Provide comprehensive, actionable fitness guidance.
                 if self.agent:
                     print("✅ Agent successfully created with MCP tools")
                     return True
-            
+
             print("⚠️ Failed to create agent with MCP tools")
             return False
         except Exception as e:
             print(f"⚠️ Error setting up agent: {e}")
             return False
-    
-    def _build_rag_context(self, user_input: str, seed_queries: List[str] | None = None) -> Tuple[str, List[str]]:
+
+    def _build_rag_context(
+        self, user_input: str, seed_queries: List[str] | None = None
+    ) -> Tuple[str, List[str]]:
         """Build a richer RAG context by running multiple diversified queries and summarizing results.
 
         Returns a tuple of (summary_text, source_filenames).
@@ -176,9 +233,12 @@ Provide comprehensive, actionable fitness guidance.
             except Exception as e:
                 print(f"⚠️ Retrieval failed for query '{q}': {e}")
                 continue
-            for d in (docs or []):
+            for d in docs or []:
                 # Deduplicate by content prefix and source when available
-                snippet_key = (d.page_content[:200], d.metadata.get("source", "unknown"))
+                snippet_key = (
+                    d.page_content[:200],
+                    d.metadata.get("source", "unknown"),
+                )
                 if snippet_key in seen_snippets:
                     continue
                 seen_snippets.add(snippet_key)
@@ -188,7 +248,9 @@ Provide comprehensive, actionable fitness guidance.
             return "", []
 
         # Format docs and collect sources
-        formatted_text, sources = self.knowledge_base.format_docs_with_sources(collected_docs[:12])
+        formatted_text, sources = self.knowledge_base.format_docs_with_sources(
+            collected_docs[:12]
+        )
 
         # Summarize into a concise context
         try:
@@ -224,16 +286,18 @@ EXCERPTS:
                 # Use agent with MCP tools
                 agent_input = user_input
                 if context_text or sources_text:
-                    agent_input = (
-                        f"RESEARCH CONTEXT:\n{context_text}\n\nSOURCES:\n{sources_text}\n\nUSER REQUEST: {user_input}"
-                    )
-                print("\n📝 Prompt (LLM input via Agent)\n==================================================")
+                    agent_input = f"RESEARCH CONTEXT:\n{context_text}\n\nSOURCES:\n{sources_text}\n\nUSER REQUEST: {user_input}"
+                print(
+                    "\n📝 Prompt (LLM input via Agent)\n=================================================="
+                )
                 print(agent_input)
                 print("==================================================\n")
-                response = await self.agent.ainvoke({"messages": [("user", agent_input)]})
+                response = await self.agent.ainvoke(
+                    {"messages": [("user", agent_input)]}
+                )
                 if isinstance(response, dict) and "messages" in response:
                     messages = response["messages"]
-                    if messages and hasattr(messages[-1], 'content'):
+                    if messages and hasattr(messages[-1], "content"):
                         return messages[-1].content
                 return str(response)
             except Exception as e:
@@ -242,11 +306,17 @@ EXCERPTS:
         # Fallback to basic chain with knowledge base context
         def try_invoke(llm_model):
             chain = self.prompt | llm_model | StrOutputParser()
-            rendered_prompt_text = self.template.format(context=context_text, sources=sources_text, input=user_input)
-            print("\n📝 Prompt (LLM input)\n==================================================")
+            rendered_prompt_text = self.template.format(
+                context=context_text, sources=sources_text, input=user_input
+            )
+            print(
+                "\n📝 Prompt (LLM input)\n=================================================="
+            )
             print(rendered_prompt_text)
             print("==================================================\n")
-            return chain.invoke({"context": context_text, "sources": sources_text, "input": user_input})
+            return chain.invoke(
+                {"context": context_text, "sources": sources_text, "input": user_input}
+            )
 
         try:
             return try_invoke(self.model)
@@ -258,8 +328,7 @@ EXCERPTS:
                 except Exception as e3:
                     print(f"⚠️ Fallback model failed: {e3}")
             return "Sorry, I'm temporarily unavailable due to rate limits. Please try again shortly."
-    
-    
+
     async def generate_weekly_plan(self) -> str:
         """Generate a comprehensive weekly workout plan."""
         # Build research context specialized for weekly planning
@@ -272,7 +341,7 @@ EXCERPTS:
             ],
         )
         sources_text = ", ".join(sources) if sources else ""
-        
+
         weekly_plan_prompt = f"""
 Create a weekly workout plan for me. Follow these steps:
 
@@ -329,7 +398,7 @@ SOURCES:
 {sources_text}
 """
         return await self.get_response(weekly_plan_prompt)
-    
+
     def get_stats(self) -> Dict[str, Any]:
         """Get system statistics."""
         mcp_stats = self.mcp.get_stats()
@@ -337,5 +406,5 @@ SOURCES:
             "model_name": self.model_name,
             "has_retriever": self.knowledge_base.has_knowledge_base(),
             "has_agent": self.agent is not None,
-            **mcp_stats
+            **mcp_stats,
         }
