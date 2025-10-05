@@ -12,6 +12,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from knowledge import KnowledgeBase
 from mcp_integration import MCPIntegration
+from context.prompts import COACH_PROMPT, SUMMARY_PROMPT, WEEKLY_PLAN_PROMPT
 
 try:
     from langchain_ollama import ChatOllama  # Fallback if OpenAI not configured
@@ -144,39 +145,8 @@ class FitnessCoach:
 
     def _setup_prompt_template(self) -> None:
         """Set up the prompt template for the AI coach."""
-        self.template = """
-You are a minimalist fitness coach expert focused on evidence-based, time-efficient workout planning.
-
-USER REQUEST:
-{input}
-
-CONVERSATION HISTORY:
-{chat_history}
-
-RESEARCH CONTEXT:
-{context}
-
-SOURCES:
-{sources}
-
-INSTRUCTIONS:
-- Provide helpful, evidence-based fitness advice and workout recommendations
-- When creating workout plans, use the available MCP tools to fetch workout history, create routines, and manage workout data
-- Always analyze user's training patterns before making recommendations
-- Focus on progressive overload, proper recovery, and balanced muscle group development
-- Use exercise templates and create structured routines when appropriate
-- Present plans clearly with rationale for exercise selection and programming decisions
-- Cite relevant sources by name when applicable; avoid fabricating citations
-
-Available tools:
-- get_workouts: Fetch user's workout history
-- create_routine: Create new workout routines
-- create_routine_folder: Organize routines into folders
-- get_exercise_templates: Access exercise database
-- And other workout management tools
-
-Provide comprehensive, actionable fitness guidance.
-"""
+        # Use concise, structured prompt for small models
+        self.template = COACH_PROMPT
 
         self.prompt = ChatPromptTemplate.from_template(self.template)
 
@@ -257,18 +227,7 @@ Provide comprehensive, actionable fitness guidance.
 
         # Summarize into a concise context
         try:
-            summary_prompt = ChatPromptTemplate.from_template(
-                """
-Summarize the following excerpts into a concise, evidence-focused brief to assist with the user's request.
-Emphasize actionable principles, programming guidance, and key tradeoffs. Keep it under 300 words.
-
-USER REQUEST:
-{question}
-
-EXCERPTS:
-{docs}
-"""
-            )
+            summary_prompt = ChatPromptTemplate.from_template(SUMMARY_PROMPT)
             chain = summary_prompt | self.model | StrOutputParser()
             summary = chain.invoke({"question": user_input, "docs": formatted_text})
         except Exception as e:
@@ -445,63 +404,15 @@ EXCERPTS:
         )
         sources_text = ", ".join(sources) if sources else ""
 
-        weekly_plan_prompt = f"""
-Create a weekly workout plan for me. Follow these steps:
-
-1. Get available exercises: get_exercise_templates(page=1, pageSize=100)
-
-2. Fetch my last 10 workouts: get_workouts(pageSize=10)
-
-3. Analyze the workouts to find:
-   - Which muscle groups I train most/least
-   - Any weak points or imbalances
-   - Training patterns and frequency
-
-4. Create a minimalist weekly plan that:
-   - Uses compound movements (squats, rdls, bench press etc)
-   - Balances all muscle groups
-   - Includes progressive overload
-   - Keeps each strength session to ~45 minutes with 6-8 exercises, each for 3-4 sets
-   - Adds a 15-minute cardio finisher (treadmill or cycle) after the strength block
-   - Uses exercise templates from step 1
-
-5. Create the routine folder: create_routine_folder(payload={{"routine_folder": {{"title": "Week xx"}}}})
-
-6. Create workout routines for each day using this complete payload format:
-create_routine(payload={{"routine": {{
-  "title": "Push Day Workout",
-  "folder_id": folder_id_from_step_5,
-  "notes": "Minimalist push workout",
-  "exercises": [
-    {{
-      "exercise_template_id": "05293BCA",
-      "notes": "Focus on form",
-      "rest_seconds": 120,
-      "sets": [
-        {{"reps": 5, "weight": 100}},
-        {{"reps": 5, "weight": 105}},
-        {{"reps": 5, "weight": 110}}
-      ]
-    }},
-    {{
-      "exercise_template_id": "12345ABC",
-      "notes": "Progressive overload",
-      "rest_seconds": 90,
-      "sets": [
-        {{"reps": 8, "weight": 50}},
-        {{"reps": 8, "weight": 55}},
-        {{"reps": 8, "weight": 60}}
-      ]
-    }}
-  ]
-}}}})
-
-RESEARCH CONTEXT:
-{research_context if research_context else "Use general evidence-based principles"}
-
-SOURCES:
-{sources_text}
-"""
+        research_text = (
+            research_context
+            if research_context
+            else "Use general evidence-based principles"
+        )
+        weekly_plan_prompt = WEEKLY_PLAN_PROMPT.format(
+            research_context=research_text,
+            sources_text=sources_text,
+        )
         return await self.get_response(weekly_plan_prompt)
 
     def get_stats(self) -> Dict[str, Any]:
