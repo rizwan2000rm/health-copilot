@@ -1,29 +1,36 @@
-# Health Copilot
+# Health Coach
 
-An AI-powered fitness coaching application that combines intelligent workout guidance with workout tracking through MCP (Model Context Protocol) integration with Hevy API.
+Being fit and healthy is easy, and most of the time we make it too complicated that has to be, that is why I built this health coach. Health Coach help me you plan minimalistic workout routines (using Hevy as a workout tracking tool) it can also help you with sleep and steps planning.
 
-## Project Overview
+My idea of fitness following the minimalism principle is as follows:
 
-This project consists of two main components:
-
-1. **AI Fitness Coach Agent** (`agent/`) - The main application providing AI-powered fitness coaching
-2. **Hevy MCP Server** (`hevy-mcp/`) - MCP server for integrating with Hevy workout tracking API
+1. Simple Workout Routines - 45 mins strength training + 15 mins cardio
+2. Sleep Optimization - 7-9 hours of sleep everyday with proper routine
+3. Steps Tracking - Gradually building a habit of walking upto 10,000-12,000 steps per day
+4. Nutrition (Coming Soon) - No calorie counting but focusing on better food choices. Grilled chicken over fried chicken, zero sugar drinks over sugary drinks etc
 
 ## Features
 
-- 🤖 AI-powered fitness coaching using Ollama (qwen2.5:3b)
-- 📚 Knowledge base with fitness research papers and guides
-- 🏋️‍♂️ Workout tracking and management via Hevy API
-- 🔧 MCP tool integration for enhanced functionality
-- 📊 Workout history and analytics
 - 📅 Weekly workout planning
+- 🤖 AI-powered recommendations and coaching for workouts, sleep and steps
+- 📚 Knowledge base with fitness minimalistic training research papers and guides
+- 🏋️‍♂️ Hevy Workout Tracking and Management
+
+## Project Overview
+
+This project consists of following components:
+
+1. **AI Fitness Coach Agent** (`agent/`) - The main application providing AI-powered fitness coaching
+2. **Hevy MCP Server** (`hevy-mcp/`) - MCP server for integrating with Hevy workout tracking API
+3. **Health Coach App** (`ui/`) - React Native application for interacting with the AI Fitness Coach Agent and Hevy MCP Server
+4. **Chroma DB** (`chromadb/`) - Chroma DB for storing and querying embeddings of research content
 
 ## Prerequisites
 
 - Python 3.13+ (for hevy-mcp) / Python 3.8+ (for agent)
-- [Ollama](https://ollama.ai/) installed and running
+- OpenAI Key or [Ollama](https://ollama.ai/) installed and running
+- Hevy API key (for workout tracking features)
 - [uv](https://github.com/astral-sh/uv) package manager (for hevy-mcp)
-- Hevy API key (optional, for workout tracking features)
 
 ## Setup Instructions
 
@@ -34,17 +41,20 @@ git clone <repository-url>
 cd health-copilot
 ```
 
-### 2. Set Up AI Fitness Coach Agent
+### 2. Configure Environment Variables
 
-The agent uses a virtual environment (`.venv` is already present):
+Create a `.env` file in the `agent/` directory:
+
+#### For Hevy API Integration
 
 ```bash
-# Activate the virtual environment
-source .venv/bin/activate
+echo "HEVY_API_KEY=your_hevy_api_key_here" > agent/.env
+```
 
-# Install dependencies
-cd agent
-pip install -r requirements.txt
+#### For OpenAI Integration
+
+```bash
+echo "OPENAI_API_KEY=your_openai_api_key_here" > agent/.env
 ```
 
 ### 3. Set Up Hevy MCP Server
@@ -56,19 +66,38 @@ cd hevy-mcp
 uv sync
 ```
 
-### 4. Configure Environment Variables
+### 4. Set Up AI Fitness Coach Agent
 
-#### For Hevy API Integration
-
-Create a `.env` file in the `agent/` directory to enable workout tracking features:
+The agent uses a virtual environment (`.venv` is already present):
 
 ```bash
-echo "HEVY_API_KEY=your_hevy_api_key_here" > agent/.env
+cd agent
+
+# Activate the virtual environment
+source .venv/bin/activate
+
+# Install dependencies
+pip install -r requirements.txt
 ```
 
-#### For Claude Desktop Integration
+## Running the Application
 
-Update the MCP configuration in `hevy-mcp/claude-desktop-config.json`:
+### Run AI Fitness Coach
+
+```bash
+# Navigate to agent directory
+cd agent
+
+# Activate virtual environment
+source .venv/bin/activate
+
+# Run the main application
+uvicorn main:app --host 0.0.0.0 --port 8000
+```
+
+## Usage
+
+#### Standalone Hevy MCP Integration
 
 ```json
 {
@@ -89,43 +118,15 @@ Update the MCP configuration in `hevy-mcp/claude-desktop-config.json`:
 }
 ```
 
-### 5. Start Ollama
-
-Make sure Ollama is running with the required model:
+#### Using React Native Client:
 
 ```bash
-ollama serve
-ollama pull qwen2.5:3b
-```
-
-## Running the Application
-
-### Run AI Fitness Coach
-
-```bash
-# Activate virtual environment
-source .venv/bin/activate
-
 # Navigate to agent directory
-cd agent
+cd ui
 
-# Run the main application
-python3 main.py
+# Install dependencies
+npm install
+
+# Start the application
+EXPO_PUBLIC_AGENT_URL=http://192.168.xxx.xx:8000 npm run start
 ```
-
-### Run Hevy MCP Server
-
-```bash
-cd hevy-mcp
-uv run app.py
-```
-
-## Usage
-
-Once the application is running, you can:
-
-### Available Commands
-
-- `help` - Show available commands
-- `weekly plan` - Generate personalized weekly plan
-- `quit`/`exit`/`q` - Exit the application
