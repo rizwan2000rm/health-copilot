@@ -9,6 +9,8 @@ My idea of fitness following the minimalism principle is as follows:
 3. Steps Tracking - Gradually building a habit of walking upto 10,000-12,000 steps per day
 4. Nutrition (Coming Soon) - No calorie counting but focusing on better food choices. Grilled chicken over fried chicken, zero sugar drinks over sugary drinks etc
 
+[Health Coach Demo](https://drive.google.com/file/d/1BXxQBdg-OFj2EhvZ8n32th7-qB-_yt6f/view)
+
 ## Features
 
 - 📅 Weekly workout planning
