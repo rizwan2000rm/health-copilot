@@ -1,6 +1,6 @@
 # Health Coach
 
-Being fit and healthy is easy, and most of the time we make it too complicated that has to be, that is why I built this health coach. Health Coach help me you plan minimalistic workout routines (using Hevy as a workout tracking tool) it can also help you with sleep and steps planning.
+Being fit and healthy is easy, and most of the time we make it too complicated that has to be, that is why I built this health coach. Health Coach helps you plan minimalistic workout routines (using Hevy as a workout tracking tool) it can also help you with sleep and steps planning.
 
 My idea of fitness following the minimalism principle is as follows:
 
